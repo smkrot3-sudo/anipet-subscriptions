@@ -7,7 +7,7 @@
     {
       "binding": "DB",
       "database_name": "anipet-subscriptions-db",
-      "database_id": "REPLACE_WITH_DATABASE_ID",
+      "database_id": "a35dec59-fb4a-4b1e-bacc-9fad68f1af33",
       "migrations_dir": "./migrations"
     }
   ],
