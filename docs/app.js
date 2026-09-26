@@ -11,6 +11,7 @@ const el = {
 	toast: document.getElementById("toast"),
 	modalBackdrop: document.getElementById("modal-backdrop"),
 	modal: document.getElementById("modal"),
+	search: document.getElementById("search-box"),
 };
 
 function showToast(message, isError = false) {
@@ -66,35 +67,51 @@ function colorLabel(color) {
 	return { green: "row-green", orange: "row-orange", red: "row-red", unknown: "row-unknown", waiting: "" }[color] || "";
 }
 
+function escapeHtml(s) {
+	return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+let allGroups = { main: [], waitingList: [], lastBag: [] };
+
 async function refresh() {
 	try {
-		const groups = await api("/api/customers");
-		renderMain(groups.main);
-		renderWaiting(groups.waitingList);
-		renderLastBag(groups.lastBag);
+		allGroups = await api("/api/customers");
+		applyFilter();
 	} catch (err) {
 		showToast(err.message, true);
 	}
 }
 
-let lastMainRows = [];
+function applyFilter() {
+	const q = (el.search.value || "").trim().toLowerCase();
+	const match = (c) => !q || c.name.toLowerCase().includes(q) || c.phone.includes(q);
+	renderMain(allGroups.main.filter(match));
+	renderWaiting(allGroups.waitingList.filter(match));
+	renderLastBag(allGroups.lastBag.filter(match));
+}
+
+el.search.addEventListener("input", applyFilter);
+
+function notesLine(c) {
+	return c.notes ? `<div class="notes-line">${escapeHtml(c.notes)}</div>` : "";
+}
 
 function renderMain(rows) {
-	lastMainRows = rows;
 	document.querySelector("#table-main").parentElement.nextElementSibling.classList.toggle("hidden", rows.length > 0);
 	el.mainBody.innerHTML = rows
 		.map(
 			(c) => `
 		<tr class="${colorLabel(c.color)}">
-			<td class="name-cell">${escapeHtml(c.name)}</td>
+			<td class="name-cell">${escapeHtml(c.name)}${notesLine(c)}</td>
 			<td><a class="phone-link" href="tel:${escapeHtml(c.phone)}">${escapeHtml(c.phone)}</a></td>
 			<td>${c.bagsRemaining}</td>
 			<td>${fmtDate(c.lastWithdrawal)}</td>
 			<td>${fmtDate(c.nextEstimate)}</td>
 			<td class="actions-cell">
-				<a class="btn btn-whatsapp" target="_blank" rel="noopener" href="${toWhatsappLink(c.phone, "היי! רצינו לבדוק אם תרצו שנוציא לכם שק מזון במשלוח 🐾")}">וואטסאפ</a>
+				<button class="btn btn-whatsapp" data-action="whatsapp" data-template="reminder" data-id="${c.id}">וואטסאפ</button>
 				<button class="btn" data-action="withdraw" data-id="${c.id}">סימון משיכה</button>
 				<button class="btn" data-action="wait" data-id="${c.id}">עדיין לא צריך</button>
+				<button class="btn" data-action="history" data-id="${c.id}">היסטוריה</button>
 				<button class="btn" data-action="edit" data-id="${c.id}">עריכה</button>
 				<button class="btn btn-danger" data-action="delete" data-id="${c.id}">מחיקה</button>
 			</td>
@@ -109,7 +126,7 @@ function renderWaiting(rows) {
 		.map(
 			(c) => `
 		<tr class="${c.readyToContact ? "row-green" : ""}">
-			<td class="name-cell">${escapeHtml(c.name)}</td>
+			<td class="name-cell">${escapeHtml(c.name)}${notesLine(c)}</td>
 			<td><a class="phone-link" href="tel:${escapeHtml(c.phone)}">${escapeHtml(c.phone)}</a></td>
 			<td>${fmtDate(c.waitingUntil)}</td>
 			<td class="actions-cell">
@@ -127,11 +144,11 @@ function renderLastBag(rows) {
 		.map(
 			(c) => `
 		<tr class="${c.bagsRemaining === 0 ? "row-red" : "row-orange"}">
-			<td class="name-cell">${escapeHtml(c.name)}</td>
+			<td class="name-cell">${escapeHtml(c.name)}${notesLine(c)}</td>
 			<td><a class="phone-link" href="tel:${escapeHtml(c.phone)}">${escapeHtml(c.phone)}</a></td>
 			<td>${c.bagsRemaining}</td>
 			<td class="actions-cell">
-				<a class="btn btn-whatsapp" target="_blank" rel="noopener" href="${toWhatsappLink(c.phone, "היי! שמנו לב שנשאר לכם שק אחרון במנוי - רוצים לחדש?")}">וואטסאפ</a>
+				<button class="btn btn-whatsapp" data-action="whatsapp" data-template="renew" data-id="${c.id}">וואטסאפ</button>
 				<button class="btn btn-primary" data-action="renew" data-id="${c.id}">חודש</button>
 			</td>
 		</tr>`
@@ -139,8 +156,8 @@ function renderLastBag(rows) {
 		.join("");
 }
 
-function escapeHtml(s) {
-	return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+function findCustomer(id) {
+	return allGroups.main.find((r) => r.id === id) || allGroups.waitingList.find((r) => r.id === id) || allGroups.lastBag.find((r) => r.id === id);
 }
 
 document.getElementById("btn-add-customer").addEventListener("click", () => {
@@ -165,6 +182,10 @@ document.getElementById("btn-add-customer").addEventListener("click", () => {
 			<div id="f-history-rows"></div>
 			<button type="button" class="btn" id="f-add-history">+ הוסף תאריך</button>
 		</div>
+		<div class="field">
+			<label>הערות (לא חובה)</label>
+			<textarea id="f-notes" rows="2"></textarea>
+		</div>
 		<div class="modal-actions">
 			<button class="btn btn-primary" id="f-submit">הוספה</button>
 			<button class="btn" id="f-cancel">ביטול</button>
@@ -186,6 +207,7 @@ document.getElementById("btn-add-customer").addEventListener("click", () => {
 				const name = modal.querySelector("#f-name").value.trim();
 				const phone = modal.querySelector("#f-phone").value.trim();
 				const bagsRemaining = Number(modal.querySelector("#f-bags").value);
+				const notes = modal.querySelector("#f-notes").value.trim();
 				const history = Array.from(modal.querySelectorAll(".f-history-date")).map((i) => i.value).filter(Boolean);
 				const errBox = modal.querySelector("#f-phone-err");
 				errBox.textContent = "";
@@ -194,7 +216,7 @@ document.getElementById("btn-add-customer").addEventListener("click", () => {
 					return;
 				}
 				try {
-					await api("/api/customers", { method: "POST", body: { name, phone, bagsRemaining, history } });
+					await api("/api/customers", { method: "POST", body: { name, phone, bagsRemaining, notes, history } });
 					closeModal();
 					showToast("הלקוח נוסף בהצלחה");
 					refresh();
@@ -270,8 +292,8 @@ function openWaitModal(id) {
 	);
 }
 
-function openEditModal(id, rows) {
-	const c = rows.find((r) => r.id === id);
+function openEditModal(id) {
+	const c = findCustomer(id);
 	if (!c) return;
 	openModal(
 		`
@@ -289,6 +311,10 @@ function openEditModal(id, rows) {
 			<label>מספר שקים שנשארו</label>
 			<input type="number" id="f-bags" value="${c.bagsRemaining}" min="0" />
 		</div>
+		<div class="field">
+			<label>הערות</label>
+			<textarea id="f-notes" rows="2">${escapeHtml(c.notes || "")}</textarea>
+		</div>
 		<div class="modal-actions">
 			<button class="btn btn-primary" id="f-submit">שמירה</button>
 			<button class="btn" id="f-cancel">ביטול</button>
@@ -299,8 +325,9 @@ function openEditModal(id, rows) {
 				const name = modal.querySelector("#f-name").value.trim();
 				const phone = modal.querySelector("#f-phone").value.trim();
 				const bagsRemaining = Number(modal.querySelector("#f-bags").value);
+				const notes = modal.querySelector("#f-notes").value.trim();
 				try {
-					await api(`/api/customers/${id}`, { method: "PATCH", body: { name, phone, bagsRemaining } });
+					await api(`/api/customers/${id}`, { method: "PATCH", body: { name, phone, bagsRemaining, notes } });
 					closeModal();
 					showToast("הפרטים עודכנו");
 					refresh();
@@ -312,15 +339,118 @@ function openEditModal(id, rows) {
 	);
 }
 
+function renderHistoryRows(modal, customer) {
+	const wrap = modal.querySelector("#history-list");
+	const sorted = [...customer.withdrawals].sort((a, b) => (a.takenAt < b.takenAt ? 1 : -1));
+	wrap.innerHTML =
+		sorted
+			.map(
+				(w) => `
+		<div class="history-row" data-wid="${w.id}">
+			<input type="date" class="hist-date" value="${w.takenAt}" max="${todayISO()}" />
+			<span class="hist-bags">${w.bags} ${w.bags === 1 ? "שק" : "שקים"}</span>
+			<button type="button" class="btn" data-hist-save="${w.id}">שמירה</button>
+			<button type="button" class="btn btn-danger" data-hist-del="${w.id}">מחק</button>
+		</div>`
+			)
+			.join("") || '<p class="empty-hint">אין היסטוריית משיכות עדיין</p>';
+}
+
+function openHistoryModal(id) {
+	const c = findCustomer(id);
+	if (!c) return;
+	openModal(
+		`
+		<h3>היסטוריית משיכות - ${escapeHtml(c.name)}</h3>
+		<div id="history-list"></div>
+		<div class="modal-actions">
+			<button class="btn" id="f-cancel">סגירה</button>
+		</div>`,
+		(modal) => {
+			renderHistoryRows(modal, c);
+			modal.querySelector("#f-cancel").addEventListener("click", closeModal);
+			modal.addEventListener("click", async (e) => {
+				const saveBtn = e.target.closest("[data-hist-save]");
+				const delBtn = e.target.closest("[data-hist-del]");
+				if (saveBtn) {
+					const wid = saveBtn.dataset.histSave;
+					const row = saveBtn.closest(".history-row");
+					const newDate = row.querySelector(".hist-date").value;
+					if (!newDate) return;
+					try {
+						await api(`/api/customers/${id}/withdrawals/${wid}`, { method: "PATCH", body: { takenAt: newDate } });
+						showToast("התאריך עודכן");
+						await refresh();
+						const updated = findCustomer(id);
+						if (updated) renderHistoryRows(modal, updated);
+					} catch (err) {
+						showToast(err.message, true);
+					}
+				}
+				if (delBtn) {
+					if (!confirm("למחוק את המשיכה הזו? מספר השקים שנשארו יתעדכן בהתאם.")) return;
+					const wid = delBtn.dataset.histDel;
+					try {
+						await api(`/api/customers/${id}/withdrawals/${wid}`, { method: "DELETE" });
+						showToast("המשיכה נמחקה");
+						await refresh();
+						const updated = findCustomer(id);
+						if (updated) renderHistoryRows(modal, updated);
+						else closeModal();
+					} catch (err) {
+						showToast(err.message, true);
+					}
+				}
+			});
+		}
+	);
+}
+
+const WHATSAPP_TEMPLATES = {
+	reminder: (name) => `היי ${name}! רצינו לבדוק אם תרצו שנוציא לכם שק מזון במשלוח 🐾`,
+	renew: (name) => `היי ${name}! שמנו לב שנשאר לכם שק אחרון במנוי - רוצים לחדש?`,
+};
+
+function openWhatsappModal(id, template) {
+	const c = findCustomer(id);
+	if (!c) return;
+	const defaultMessage = (WHATSAPP_TEMPLATES[template] || WHATSAPP_TEMPLATES.reminder)(c.name);
+	openModal(
+		`
+		<h3>הודעת וואטסאפ ל${escapeHtml(c.name)}</h3>
+		<div class="field">
+			<label>טקסט ההודעה (אפשר לערוך לפני השליחה)</label>
+			<textarea id="f-msg" rows="5">${escapeHtml(defaultMessage)}</textarea>
+		</div>
+		<div class="modal-actions">
+			<button class="btn btn-whatsapp" id="f-send">פתיחה בוואטסאפ</button>
+			<button class="btn" id="f-cancel">ביטול</button>
+		</div>`,
+		(modal) => {
+			modal.querySelector("#f-cancel").addEventListener("click", closeModal);
+			modal.querySelector("#f-send").addEventListener("click", () => {
+				const msg = modal.querySelector("#f-msg").value;
+				window.open(toWhatsappLink(c.phone, msg), "_blank", "noopener");
+				closeModal();
+			});
+		}
+	);
+}
+
 document.getElementById("app").addEventListener("click", async (e) => {
 	const btn = e.target.closest("button[data-action]");
 	if (!btn) return;
-	const { action, id } = btn.dataset;
+	const { action, id, template } = btn.dataset;
 	const customerId = Number(id);
 
 	if (action === "withdraw") return openWithdrawModal(customerId);
 	if (action === "wait") return openWaitModal(customerId);
-	if (action === "edit") return openEditModal(customerId, lastMainRows);
+	if (action === "edit") {
+		await refresh();
+		return openEditModal(customerId);
+	}
+	if (action === "history") return openHistoryModal(customerId);
+	if (action === "whatsapp") return openWhatsappModal(customerId, template);
 
 	if (action === "unwait") {
 		try {

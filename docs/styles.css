@@ -46,6 +46,19 @@ body {
 	margin: 0 auto;
 }
 
+.search-wrap {
+	margin-bottom: 16px;
+}
+
+#search-box {
+	width: 100%;
+	max-width: 400px;
+	padding: 10px 12px;
+	border: 1px solid var(--border);
+	border-radius: 8px;
+	font-size: 1rem;
+}
+
 .table-section {
 	background: white;
 	border: 1px solid var(--border);
@@ -113,6 +126,14 @@ tr.row-red { background: var(--red-bg); }
 tr.row-unknown { background: var(--unknown-bg); }
 
 .name-cell { font-weight: 600; }
+
+.notes-line {
+	font-weight: 400;
+	font-size: 0.78rem;
+	color: var(--unknown);
+	white-space: normal;
+	max-width: 220px;
+}
 
 .phone-link {
 	color: var(--primary);
@@ -195,11 +216,23 @@ tr.row-unknown { background: var(--unknown-bg); }
 
 .field label { font-size: 0.85rem; color: var(--unknown); }
 
-.field input {
+.field input,
+.field textarea {
 	padding: 8px 10px;
 	border: 1px solid var(--border);
 	border-radius: 6px;
 	font-size: 1rem;
+	font-family: inherit;
+	resize: vertical;
+}
+
+#history-list .history-row {
+	align-items: center;
+}
+#history-list .hist-bags {
+	font-size: 0.85rem;
+	color: var(--unknown);
+	white-space: nowrap;
 }
 
 .history-row {

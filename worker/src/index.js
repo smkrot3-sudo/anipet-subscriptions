@@ -262,6 +262,36 @@ async function handleRequest(request, env) {
 		return error("פעולה לא נתמכת", 405);
 	}
 
+	const withdrawalMatch = pathname.match(/^\/api\/customers\/(\d+)\/withdrawals\/(\d+)$/);
+	if (withdrawalMatch) {
+		const customerId = Number(withdrawalMatch[1]);
+		const withdrawalId = Number(withdrawalMatch[2]);
+		const withdrawal = await db
+			.prepare("SELECT * FROM withdrawals WHERE id = ? AND customer_id = ?")
+			.bind(withdrawalId, customerId)
+			.first();
+		if (!withdrawal) return error("משיכה לא נמצאה", 404);
+
+		if (request.method === "PATCH") {
+			const body = await request.json().catch(() => null);
+			if (!body || !isValidDateStr(body.takenAt)) return error("תאריך לא תקין");
+			await db.prepare("UPDATE withdrawals SET taken_at = ? WHERE id = ?").bind(body.takenAt, withdrawalId).run();
+			return json({ ok: true });
+		}
+
+		if (request.method === "DELETE") {
+			await db.prepare("DELETE FROM withdrawals WHERE id = ?").bind(withdrawalId).run();
+			const customer = await db.prepare("SELECT * FROM customers WHERE id = ?").bind(customerId).first();
+			if (customer) {
+				const restored = customer.bags_remaining + withdrawal.bags;
+				await db.prepare("UPDATE customers SET bags_remaining = ?, updated_at = datetime('now') WHERE id = ?").bind(restored, customerId).run();
+			}
+			return json({ ok: true });
+		}
+
+		return error("פעולה לא נתמכת", 405);
+	}
+
 	return error("לא נמצא", 404);
 }
 
