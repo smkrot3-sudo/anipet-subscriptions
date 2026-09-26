@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>מעקב מנויי מזון - אניפט</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<header class="app-header">
+	<h1>מעקב מנויי שקי מזון</h1>
+	<button id="btn-add-customer" class="btn btn-primary">+ צירוף לקוח חדש</button>
+</header>
+
+<main id="app">
+	<div id="toast" class="toast hidden"></div>
+
+	<section class="table-section">
+		<h2>לקוחות במעקב</h2>
+		<p class="section-hint">
+			<span class="dot dot-green"></span> אפשר לשלוח הודעה עכשיו
+			<span class="dot dot-orange"></span> בקרוב
+			<span class="dot dot-red"></span> יש עוד זמן
+			<span class="dot dot-unknown"></span> אין מספיק היסטוריה
+		</p>
+		<div class="table-wrap">
+			<table id="table-main">
+				<thead>
+					<tr>
+						<th>לקוח</th>
+						<th>טלפון</th>
+						<th>שקים שנשארו</th>
+						<th>משיכה אחרונה</th>
+						<th>תאריך משוער הבא</th>
+						<th>פעולות</th>
+					</tr>
+				</thead>
+				<tbody></tbody>
+			</table>
+		</div>
+		<p class="empty-hint hidden">אין לקוחות להצגה</p>
+	</section>
+
+	<section class="table-section">
+		<h2>ממתינים - עוד לא צריכים שק</h2>
+		<div class="table-wrap">
+			<table id="table-waiting">
+				<thead>
+					<tr>
+						<th>לקוח</th>
+						<th>טלפון</th>
+						<th>לחזור אליו בתאריך</th>
+						<th>פעולות</th>
+					</tr>
+				</thead>
+				<tbody></tbody>
+			</table>
+		</div>
+		<p class="empty-hint hidden">אין לקוחות ברשימת ההמתנה</p>
+	</section>
+
+	<section class="table-section">
+		<h2>נשאר שק אחרון - להציע חידוש</h2>
+		<div class="table-wrap">
+			<table id="table-lastbag">
+				<thead>
+					<tr>
+						<th>לקוח</th>
+						<th>טלפון</th>
+						<th>שקים שנשארו</th>
+						<th>פעולות</th>
+					</tr>
+				</thead>
+				<tbody></tbody>
+			</table>
+		</div>
+		<p class="empty-hint hidden">אין לקוחות שצריכים חידוש</p>
+	</section>
+</main>
+
+<div id="modal-backdrop" class="modal-backdrop hidden">
+	<div class="modal" id="modal"></div>
+</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

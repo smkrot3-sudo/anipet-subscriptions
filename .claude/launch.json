@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "api",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["wrangler", "dev", "--config", "worker/wrangler.jsonc", "--port", "8787", "--local"],
+      "port": 8787
+    },
+    {
+      "name": "web",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "docs", "-l", "5500"],
+      "port": 5500
+    }
+  ]
+}

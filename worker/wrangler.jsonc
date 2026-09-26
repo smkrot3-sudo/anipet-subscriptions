@@ -1,0 +1,17 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "anipet-subscriptions",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-01",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "anipet-subscriptions-db",
+      "database_id": "REPLACE_WITH_DATABASE_ID",
+      "migrations_dir": "./migrations"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}
