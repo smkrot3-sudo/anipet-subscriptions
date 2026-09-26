@@ -1,5 +1,10 @@
-const GREEN_LEAD_DAYS = 7;
-const ORANGE_LEAD_DAYS = 14;
+// Lead time scales with the customer's own pickup cadence, not a fixed
+// number of days: a monthly buyer should hear from us ~5 days early, a
+// weekly buyer shouldn't be "green" for most of their whole cycle.
+const GREEN_LEAD_FRACTION = 1 / 6;
+const ORANGE_LEAD_FRACTION = 1 / 3;
+const MIN_GREEN_LEAD_DAYS = 2;
+const MIN_ORANGE_EXTRA_DAYS = 3;
 const RENEW_ADD_BAGS = 6;
 
 const CORS_HEADERS = {
@@ -55,11 +60,13 @@ function computeEstimate(history) {
 	return { avgIntervalDays, nextEstimate, lastWithdrawal: last };
 }
 
-function colorFor(nextEstimate, today) {
+function colorFor(nextEstimate, today, avgIntervalDays) {
 	if (!nextEstimate) return "unknown";
 	const diff = daysBetween(today, nextEstimate);
-	if (diff <= GREEN_LEAD_DAYS) return "green";
-	if (diff <= ORANGE_LEAD_DAYS) return "orange";
+	const greenLead = Math.max(MIN_GREEN_LEAD_DAYS, Math.round((avgIntervalDays || 0) * GREEN_LEAD_FRACTION));
+	const orangeLead = Math.max(greenLead + MIN_ORANGE_EXTRA_DAYS, Math.round((avgIntervalDays || 0) * ORANGE_LEAD_FRACTION));
+	if (diff <= greenLead) return "green";
+	if (diff <= orangeLead) return "orange";
 	return "red";
 }
 
@@ -89,7 +96,7 @@ async function buildCustomerViews(db) {
 			lastWithdrawal,
 			avgIntervalDays: avgIntervalDays === null ? null : Math.round(avgIntervalDays * 10) / 10,
 			nextEstimate,
-			color: waiting ? "waiting" : colorFor(nextEstimate, today),
+			color: waiting ? "waiting" : colorFor(nextEstimate, today, avgIntervalDays),
 			isLastBag: c.bags_remaining <= 1,
 			isWaiting: waiting,
 			withdrawals: history.map((h) => ({ id: h.id, takenAt: h.taken_at, bags: h.bags })),
