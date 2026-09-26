@@ -1,4 +1,5 @@
-const ORANGE_LEAD_DAYS = 3;
+const GREEN_LEAD_DAYS = 7;
+const ORANGE_LEAD_DAYS = 14;
 const RENEW_ADD_BAGS = 6;
 
 const CORS_HEADERS = {
@@ -57,7 +58,7 @@ function computeEstimate(history) {
 function colorFor(nextEstimate, today) {
 	if (!nextEstimate) return "unknown";
 	const diff = daysBetween(today, nextEstimate);
-	if (diff <= 0) return "green";
+	if (diff <= GREEN_LEAD_DAYS) return "green";
 	if (diff <= ORANGE_LEAD_DAYS) return "orange";
 	return "red";
 }
