@@ -160,8 +160,16 @@ async function handleRequest(request, env) {
 			.prepare("INSERT INTO customers (name, phone, bags_remaining) VALUES (?, ?, ?)")
 			.bind(name, phone, bagsRemaining)
 			.run();
+		const customerId = result.meta.last_row_id;
 
-		return json({ id: result.meta.last_row_id }, 201);
+		if (Array.isArray(body.history)) {
+			const validDates = body.history.filter(isValidDateStr);
+			for (const takenAt of validDates) {
+				await db.prepare("INSERT INTO withdrawals (customer_id, taken_at, bags) VALUES (?, ?, 1)").bind(customerId, takenAt).run();
+			}
+		}
+
+		return json({ id: customerId }, 201);
 	}
 
 	const idMatch = pathname.match(/^\/api\/customers\/(\d+)(?:\/(withdraw|wait|renew|unwait))?$/);

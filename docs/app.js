@@ -160,16 +160,33 @@ document.getElementById("btn-add-customer").addEventListener("click", () => {
 			<label>מספר שקים שנשארו במנוי</label>
 			<input type="number" id="f-bags" value="6" min="0" />
 		</div>
+		<div class="field">
+			<label>תאריכי משיכות קודמות (לא חובה - עוזר לחשב תדירות)</label>
+			<div id="f-history-rows"></div>
+			<button type="button" class="btn" id="f-add-history">+ הוסף תאריך</button>
+		</div>
 		<div class="modal-actions">
 			<button class="btn btn-primary" id="f-submit">הוספה</button>
 			<button class="btn" id="f-cancel">ביטול</button>
 		</div>`,
 		(modal) => {
+			const rowsWrap = modal.querySelector("#f-history-rows");
+			function addHistoryRow() {
+				const row = document.createElement("div");
+				row.className = "history-row";
+				row.innerHTML = `<input type="date" class="f-history-date" max="${todayISO()}" /><button type="button" class="btn btn-danger">הסר</button>`;
+				row.querySelector("button").addEventListener("click", () => row.remove());
+				rowsWrap.appendChild(row);
+			}
+			addHistoryRow();
+			modal.querySelector("#f-add-history").addEventListener("click", addHistoryRow);
+
 			modal.querySelector("#f-cancel").addEventListener("click", closeModal);
 			modal.querySelector("#f-submit").addEventListener("click", async () => {
 				const name = modal.querySelector("#f-name").value.trim();
 				const phone = modal.querySelector("#f-phone").value.trim();
 				const bagsRemaining = Number(modal.querySelector("#f-bags").value);
+				const history = Array.from(modal.querySelectorAll(".f-history-date")).map((i) => i.value).filter(Boolean);
 				const errBox = modal.querySelector("#f-phone-err");
 				errBox.textContent = "";
 				if (!name || !phone) {
@@ -177,7 +194,7 @@ document.getElementById("btn-add-customer").addEventListener("click", () => {
 					return;
 				}
 				try {
-					await api("/api/customers", { method: "POST", body: { name, phone, bagsRemaining } });
+					await api("/api/customers", { method: "POST", body: { name, phone, bagsRemaining, history } });
 					closeModal();
 					showToast("הלקוח נוסף בהצלחה");
 					refresh();
