@@ -463,6 +463,13 @@ td.date-cell, .date-cell { font-variant-numeric: tabular-nums; color: var(--ink-
 
 .modal h3 { font-size: 1rem; font-weight: 700; margin: 0 0 16px; }
 
+.modal-note {
+	font-size: 12.5px;
+	color: var(--ink-muted);
+	margin: -6px 0 14px;
+	line-height: 1.5;
+}
+
 .field {
 	margin-bottom: 14px;
 	display: flex;

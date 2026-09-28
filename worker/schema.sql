@@ -5,6 +5,8 @@ CREATE TABLE IF NOT EXISTS customers (
   bags_remaining INTEGER NOT NULL DEFAULT 6,
   waiting_until TEXT,
   notes TEXT,
+  removed_at TEXT,
+  removal_reason TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );

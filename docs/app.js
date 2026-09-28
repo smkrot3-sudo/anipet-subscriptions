@@ -46,7 +46,9 @@ async function api(path, options = {}) {
 	});
 	const data = await res.json().catch(() => ({}));
 	if (!res.ok) {
-		throw new Error(data.error || `שגיאה (${res.status})`);
+		const err = new Error(data.error || `שגיאה (${res.status})`);
+		Object.assign(err, data);
+		throw err;
 	}
 	return data;
 }
@@ -260,7 +262,7 @@ document.getElementById("btn-add-customer").addEventListener("click", () => {
 			<input type="number" id="f-bags" value="6" min="0" />
 		</div>
 		<div class="field">
-			<label>תאריכי משיכות קודמות (לא חובה - עוזר לחשב תדירות)</label>
+			<label>תאריכי משיכות קודמות (חובה - לפחות תאריך אחד, עוזר לחשב תדירות)</label>
 			<div id="f-history-rows"></div>
 			<button type="button" class="btn" id="f-add-history">+ הוסף תאריך</button>
 		</div>
@@ -297,18 +299,35 @@ document.getElementById("btn-add-customer").addEventListener("click", () => {
 					errBox.textContent = "שם וטלפון הם שדות חובה";
 					return;
 				}
-				try {
-					await api("/api/customers", { method: "POST", body: { name, phone, bagsRemaining, notes, history } });
-					closeModal();
-					showToast("הלקוח נוסף בהצלחה");
-					refresh();
-				} catch (err) {
-					errBox.textContent = err.message;
+				if (history.length === 0) {
+					errBox.textContent = "יש להזין לפחות תאריך משיכה קודם אחד";
+					return;
 				}
+				await submitNewCustomer({ name, phone, bagsRemaining, notes, history }, errBox);
 			});
 		}
 	);
 });
+
+async function submitNewCustomer(payload, errBox) {
+	try {
+		await api("/api/customers", { method: "POST", body: payload });
+		closeModal();
+		showToast("הלקוח נוסף בהצלחה");
+		refresh();
+	} catch (err) {
+		if (err.removed) {
+			const r = err.removedCustomer;
+			const reasonText = r.removalReason ? `\nסיבת ההסרה שנרשמה: ${r.removalReason}` : "\n(לא נרשמה סיבת הסרה)";
+			const confirmed = confirm(`מספר הטלפון הזה שייך ל"${r.name}", שהוסר/ה בעבר מהמאגר.${reasonText}\n\nלהוסיף אותו/ה מחדש?`);
+			if (confirmed) {
+				await submitNewCustomer({ ...payload, confirmReactivate: true }, errBox);
+			}
+			return;
+		}
+		errBox.textContent = err.message;
+	}
+}
 
 function openWithdrawModal(id) {
 	const today = todayISO();
@@ -556,17 +575,39 @@ document.getElementById("app").addEventListener("click", async (e) => {
 		return;
 	}
 
-	if (action === "delete") {
-		if (!confirm("למחוק את הלקוח לצמיתות? הפעולה אינה הפיכה.")) return;
-		try {
-			await api(`/api/customers/${customerId}`, { method: "DELETE" });
-			showToast("הלקוח נמחק");
-			refresh();
-		} catch (err) {
-			showToast(err.message, true);
-		}
-	}
+	if (action === "delete") return openDeleteModal(customerId);
 });
+
+function openDeleteModal(id) {
+	const c = findCustomer(id);
+	openModal(
+		`
+		<h3>הסרת ${c ? escapeHtml(c.name) : "לקוח"} מהמאגר</h3>
+		<p class="modal-note">הלקוח יוסר מהמעקב. אם ינסו להוסיף אותו שוב עם אותו מספר טלפון, הצוות יראה אזהרה עם הסיבה שתירשם כאן.</p>
+		<div class="field">
+			<label>סיבת ההסרה (לא חובה)</label>
+			<textarea id="f-reason" rows="2" placeholder="למשל: ביקש/ה לא לקבל הודעות"></textarea>
+		</div>
+		<div class="modal-actions">
+			<button class="btn btn-danger" id="f-submit">הסרה</button>
+			<button class="btn" id="f-cancel">ביטול</button>
+		</div>`,
+		(modal) => {
+			modal.querySelector("#f-cancel").addEventListener("click", closeModal);
+			modal.querySelector("#f-submit").addEventListener("click", async () => {
+				const reason = modal.querySelector("#f-reason").value.trim();
+				try {
+					await api(`/api/customers/${id}`, { method: "DELETE", body: { reason } });
+					closeModal();
+					showToast("הלקוח הוסר");
+					refresh();
+				} catch (err) {
+					showToast(err.message, true);
+				}
+			});
+		}
+	);
+}
 
 refresh();
 setInterval(refresh, 60000);

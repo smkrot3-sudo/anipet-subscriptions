@@ -72,7 +72,7 @@ function colorFor(nextEstimate, today, avgIntervalDays) {
 
 async function buildCustomerViews(db) {
 	const today = todayISO();
-	const { results: customers } = await db.prepare("SELECT * FROM customers ORDER BY id").all();
+	const { results: customers } = await db.prepare("SELECT * FROM customers WHERE removed_at IS NULL ORDER BY id").all();
 	const { results: withdrawals } = await db.prepare("SELECT * FROM withdrawals ORDER BY customer_id, taken_at").all();
 
 	const byCustomer = new Map();
@@ -146,7 +146,7 @@ async function handleRequest(request, env) {
 		return json(groups);
 	}
 
-	// POST /api/customers -> create new customer
+	// POST /api/customers -> create new customer (or reactivate a previously removed one)
 	if (request.method === "POST" && pathname === "/api/customers") {
 		const body = await request.json().catch(() => null);
 		if (!body || typeof body.name !== "string" || !body.name.trim()) {
@@ -155,26 +155,53 @@ async function handleRequest(request, env) {
 		if (typeof body.phone !== "string" || !body.phone.trim()) {
 			return error("מספר טלפון הוא שדה חובה");
 		}
+		const validDates = Array.isArray(body.history) ? body.history.filter(isValidDateStr) : [];
+		if (validDates.length === 0) {
+			return error("יש להזין לפחות תאריך משיכה קודם אחד");
+		}
 		const phone = body.phone.trim();
 		const name = body.name.trim();
+		const notes = typeof body.notes === "string" ? body.notes : "";
 		const bagsRemaining = Number.isFinite(body.bagsRemaining) ? Math.max(0, Math.floor(body.bagsRemaining)) : 6;
 
-		const existing = await db.prepare("SELECT id FROM customers WHERE phone = ?").bind(phone).first();
-		if (existing) {
+		const existing = await db.prepare("SELECT * FROM customers WHERE phone = ?").bind(phone).first();
+
+		if (existing && !existing.removed_at) {
 			return error("מספר הטלפון הזה כבר קיים במערכת - לא ניתן לצרף את אותו לקוח פעמיים", 409);
 		}
 
+		if (existing && existing.removed_at) {
+			if (!body.confirmReactivate) {
+				return json(
+					{
+						error: "מספר הטלפון הזה הוסר בעבר מהמאגר",
+						removed: true,
+						removedCustomer: { id: existing.id, name: existing.name, removalReason: existing.removal_reason || "", removedAt: existing.removed_at },
+					},
+					409
+				);
+			}
+
+			await db
+				.prepare(
+					"UPDATE customers SET name = ?, bags_remaining = ?, notes = ?, removed_at = NULL, removal_reason = NULL, waiting_until = NULL, updated_at = datetime('now') WHERE id = ?"
+				)
+				.bind(name, bagsRemaining, notes, existing.id)
+				.run();
+			for (const takenAt of validDates) {
+				await db.prepare("INSERT INTO withdrawals (customer_id, taken_at, bags) VALUES (?, ?, 1)").bind(existing.id, takenAt).run();
+			}
+			return json({ id: existing.id, reactivated: true }, 200);
+		}
+
 		const result = await db
-			.prepare("INSERT INTO customers (name, phone, bags_remaining) VALUES (?, ?, ?)")
-			.bind(name, phone, bagsRemaining)
+			.prepare("INSERT INTO customers (name, phone, bags_remaining, notes) VALUES (?, ?, ?, ?)")
+			.bind(name, phone, bagsRemaining, notes)
 			.run();
 		const customerId = result.meta.last_row_id;
 
-		if (Array.isArray(body.history)) {
-			const validDates = body.history.filter(isValidDateStr);
-			for (const takenAt of validDates) {
-				await db.prepare("INSERT INTO withdrawals (customer_id, taken_at, bags) VALUES (?, ?, 1)").bind(customerId, takenAt).run();
-			}
+		for (const takenAt of validDates) {
+			await db.prepare("INSERT INTO withdrawals (customer_id, taken_at, bags) VALUES (?, ?, 1)").bind(customerId, takenAt).run();
 		}
 
 		return json({ id: customerId }, 201);
@@ -220,7 +247,12 @@ async function handleRequest(request, env) {
 		}
 
 		if (request.method === "DELETE" && !action) {
-			await db.prepare("DELETE FROM customers WHERE id = ?").bind(id).run();
+			const body = await request.json().catch(() => ({}));
+			const reason = typeof body?.reason === "string" ? body.reason.trim() : "";
+			await db
+				.prepare("UPDATE customers SET removed_at = datetime('now'), removal_reason = ?, waiting_until = NULL, updated_at = datetime('now') WHERE id = ?")
+				.bind(reason, id)
+				.run();
 			return json({ ok: true });
 		}
 
