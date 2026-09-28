@@ -12,6 +12,7 @@ const el = {
 	modalBackdrop: document.getElementById("modal-backdrop"),
 	modal: document.getElementById("modal"),
 	search: document.getElementById("search-box"),
+	sort: document.getElementById("sort-select"),
 };
 
 function showToast(message, isError = false) {
@@ -120,15 +121,49 @@ function renderStatStrip() {
 		<div class="stat-tile stat-renew"><span class="stat-value">${renew}</span><span class="stat-label">לחדש מנוי</span></div>`;
 }
 
+let statusFilter = null;
+
+function sortMainRows(rows, mode) {
+	const copy = [...rows];
+	if (mode === "name") return copy.sort((a, b) => a.name.localeCompare(b.name, "he"));
+	if (mode === "bags") return copy.sort((a, b) => a.bagsRemaining - b.bagsRemaining);
+	if (mode === "date") {
+		return copy.sort((a, b) => {
+			if (a.nextEstimate && b.nextEstimate) return a.nextEstimate < b.nextEstimate ? -1 : a.nextEstimate > b.nextEstimate ? 1 : 0;
+			if (a.nextEstimate) return -1;
+			if (b.nextEstimate) return 1;
+			return 0;
+		});
+	}
+	return copy; // "urgency" - the server already returns this order
+}
+
 function applyFilter() {
 	const q = (el.search.value || "").trim().toLowerCase();
 	const match = (c) => !q || c.name.toLowerCase().includes(q) || c.phone.includes(q);
-	renderMain(allGroups.main.filter(match));
+
+	let main = allGroups.main.filter(match);
+	if (statusFilter) main = main.filter((c) => c.color === statusFilter);
+	main = sortMainRows(main, el.sort.value);
+
+	renderMain(main);
 	renderWaiting(allGroups.waitingList.filter(match));
 	renderLastBag(allGroups.lastBag.filter(match));
+
+	document.querySelectorAll(".legend-chip").forEach((chip) => {
+		chip.classList.toggle("active", chip.dataset.filter === statusFilter);
+	});
 }
 
 el.search.addEventListener("input", applyFilter);
+el.sort.addEventListener("change", applyFilter);
+
+document.querySelectorAll(".legend-chip").forEach((chip) => {
+	chip.addEventListener("click", () => {
+		statusFilter = statusFilter === chip.dataset.filter ? null : chip.dataset.filter;
+		applyFilter();
+	});
+});
 
 function notesLine(c) {
 	return c.notes ? `<div class="notes-line">${escapeHtml(c.notes)}</div>` : "";

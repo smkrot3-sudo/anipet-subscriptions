@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" />
-<link rel="stylesheet" href="styles.css?v=5" />
+<link rel="stylesheet" href="styles.css?v=6" />
 </head>
 <body>
 <header class="app-header">
@@ -24,18 +24,24 @@
 <main id="app">
 	<div id="toast" class="toast hidden"></div>
 
-	<div class="search-wrap">
+	<div class="toolbar">
 		<input type="search" id="search-box" placeholder="חיפוש לפי שם או טלפון..." />
+		<select id="sort-select" aria-label="מיון">
+			<option value="urgency">מיון: לפי דחיפות</option>
+			<option value="name">מיון: לפי שם (א-ב)</option>
+			<option value="bags">מיון: לפי שקים שנשארו</option>
+			<option value="date">מיון: לפי תאריך משוער</option>
+		</select>
 	</div>
 
 	<section class="table-section">
 		<h2>לקוחות במעקב</h2>
 		<div class="legend">
-			<span class="legend-chip"><i class="dot dot-green"></i>אפשר לשלוח עכשיו</span>
-			<span class="legend-chip"><i class="dot dot-orange"></i>בקרוב</span>
-			<span class="legend-chip"><i class="dot dot-red"></i>יש עוד זמן</span>
-			<span class="legend-chip"><i class="dot dot-unknown"></i>אין מספיק היסטוריה</span>
-			<span class="legend-note">הזמן המומלץ מתאים את עצמו לתדירות המשיכה של כל לקוח - כדי להקדים סניפים אחרים ברשת</span>
+			<button type="button" class="legend-chip" data-filter="green"><i class="dot dot-green"></i>אפשר לשלוח עכשיו</button>
+			<button type="button" class="legend-chip" data-filter="orange"><i class="dot dot-orange"></i>בקרוב</button>
+			<button type="button" class="legend-chip" data-filter="red"><i class="dot dot-red"></i>יש עוד זמן</button>
+			<button type="button" class="legend-chip" data-filter="unknown"><i class="dot dot-unknown"></i>אין מספיק היסטוריה</button>
+			<span class="legend-note">הזמן המומלץ מתאים את עצמו לתדירות המשיכה של כל לקוח - כדי להקדים סניפים אחרים ברשת. לחיצה על תווית מסננת לפי אותו סטטוס.</span>
 		</div>
 		<div class="table-wrap">
 			<table id="table-main">
@@ -96,7 +102,7 @@
 	<div class="modal" id="modal"></div>
 </div>
 
-<script src="config.js?v=5"></script>
-<script src="app.js?v=5"></script>
+<script src="config.js?v=6"></script>
+<script src="app.js?v=6"></script>
 </body>
 </html>
