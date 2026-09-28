@@ -71,15 +71,53 @@ function escapeHtml(s) {
 	return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
 
+const STATUS_LABELS = {
+	green: "אפשר עכשיו",
+	orange: "בקרוב",
+	red: "יש זמן",
+	unknown: "אין נתונים",
+};
+
+function statusChip(color, label) {
+	return `<span class="status-chip"><i class="dot dot-${color}"></i>${label || STATUS_LABELS[color] || ""}</span>`;
+}
+
+function bagGauge(id, bagsRemaining) {
+	const ratio = Math.max(0, Math.min(1, bagsRemaining / 6));
+	const w = 13, h = 16, fillH = Math.round(h * ratio), y = h - fillH;
+	const clipId = `bag-clip-${id}`;
+	return `<span class="bag-gauge">
+		<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true">
+			<defs><clipPath id="${clipId}"><rect x="0.5" y="0.5" width="${w - 1}" height="${h - 1}" rx="3" /></clipPath></defs>
+			<rect x="0.5" y="0.5" width="${w - 1}" height="${h - 1}" rx="3" fill="var(--surface-2)" stroke="var(--border-strong)" />
+			<g clip-path="url(#${clipId})"><rect x="0" y="${y}" width="${w}" height="${fillH}" fill="var(--ink-secondary)" /></g>
+		</svg>
+		${bagsRemaining}
+	</span>`;
+}
+
 let allGroups = { main: [], waitingList: [], lastBag: [] };
 
 async function refresh() {
 	try {
 		allGroups = await api("/api/customers");
+		renderStatStrip();
 		applyFilter();
 	} catch (err) {
 		showToast(err.message, true);
 	}
+}
+
+function renderStatStrip() {
+	const readyNow = allGroups.main.filter((c) => c.color === "green").length;
+	const soon = allGroups.main.filter((c) => c.color === "orange").length;
+	const waiting = allGroups.waitingList.length;
+	const renew = allGroups.lastBag.length;
+	document.getElementById("stat-strip").innerHTML = `
+		<div class="stat-tile stat-green"><span class="stat-value">${readyNow}</span><span class="stat-label">אפשר לשלוח עכשיו</span></div>
+		<div class="stat-tile stat-orange"><span class="stat-value">${soon}</span><span class="stat-label">בקרוב</span></div>
+		<div class="stat-tile stat-waiting"><span class="stat-value">${waiting}</span><span class="stat-label">ממתינים</span></div>
+		<div class="stat-tile stat-renew"><span class="stat-value">${renew}</span><span class="stat-label">לחדש מנוי</span></div>`;
 }
 
 function applyFilter() {
@@ -102,11 +140,14 @@ function renderMain(rows) {
 		.map(
 			(c) => `
 		<tr class="${colorLabel(c.color)}">
-			<td class="name-cell">${escapeHtml(c.name)}${notesLine(c)}</td>
-			<td><a class="phone-link" href="tel:${escapeHtml(c.phone)}">${escapeHtml(c.phone)}</a></td>
-			<td>${c.bagsRemaining}</td>
-			<td>${fmtDate(c.lastWithdrawal)}</td>
-			<td>${fmtDate(c.nextEstimate)}</td>
+			<td class="name-cell">
+				<div class="name-line">${statusChip(c.color)}<span>${escapeHtml(c.name)}</span></div>
+				${notesLine(c)}
+			</td>
+			<td data-label="טלפון"><a class="phone-link" href="tel:${escapeHtml(c.phone)}">${escapeHtml(c.phone)}</a></td>
+			<td data-label="שקים שנשארו">${bagGauge(c.id, c.bagsRemaining)}</td>
+			<td data-label="משיכה אחרונה" class="date-cell">${fmtDate(c.lastWithdrawal)}</td>
+			<td data-label="תאריך משוער הבא" class="date-cell">${fmtDate(c.nextEstimate)}</td>
 			<td class="actions-cell">
 				<button class="btn btn-whatsapp" data-action="whatsapp" data-template="reminder" data-id="${c.id}">וואטסאפ</button>
 				<button class="btn" data-action="withdraw" data-id="${c.id}">סימון משיכה</button>
@@ -126,9 +167,12 @@ function renderWaiting(rows) {
 		.map(
 			(c) => `
 		<tr class="${c.readyToContact ? "row-green" : ""}">
-			<td class="name-cell">${escapeHtml(c.name)}${notesLine(c)}</td>
-			<td><a class="phone-link" href="tel:${escapeHtml(c.phone)}">${escapeHtml(c.phone)}</a></td>
-			<td>${fmtDate(c.waitingUntil)}</td>
+			<td class="name-cell">
+				<div class="name-line">${statusChip(c.readyToContact ? "green" : "unknown", c.readyToContact ? "מוכן לחזרה" : "בהמתנה")}<span>${escapeHtml(c.name)}</span></div>
+				${notesLine(c)}
+			</td>
+			<td data-label="טלפון"><a class="phone-link" href="tel:${escapeHtml(c.phone)}">${escapeHtml(c.phone)}</a></td>
+			<td data-label="לחזור אליו בתאריך" class="date-cell">${fmtDate(c.waitingUntil)}</td>
 			<td class="actions-cell">
 				<button class="btn" data-action="withdraw" data-id="${c.id}">משך שק</button>
 				<button class="btn" data-action="unwait" data-id="${c.id}">חזרה למעקב רגיל</button>
@@ -144,9 +188,12 @@ function renderLastBag(rows) {
 		.map(
 			(c) => `
 		<tr class="${c.bagsRemaining === 0 ? "row-red" : "row-orange"}">
-			<td class="name-cell">${escapeHtml(c.name)}${notesLine(c)}</td>
-			<td><a class="phone-link" href="tel:${escapeHtml(c.phone)}">${escapeHtml(c.phone)}</a></td>
-			<td>${c.bagsRemaining}</td>
+			<td class="name-cell">
+				<div class="name-line">${statusChip(c.bagsRemaining === 0 ? "red" : "orange", c.bagsRemaining === 0 ? "אין שקים" : "שק אחרון")}<span>${escapeHtml(c.name)}</span></div>
+				${notesLine(c)}
+			</td>
+			<td data-label="טלפון"><a class="phone-link" href="tel:${escapeHtml(c.phone)}">${escapeHtml(c.phone)}</a></td>
+			<td data-label="שקים שנשארו">${bagGauge(c.id, c.bagsRemaining)}</td>
 			<td class="actions-cell">
 				<button class="btn btn-whatsapp" data-action="whatsapp" data-template="renew" data-id="${c.id}">וואטסאפ</button>
 				<button class="btn btn-primary" data-action="renew" data-id="${c.id}">חודש</button>

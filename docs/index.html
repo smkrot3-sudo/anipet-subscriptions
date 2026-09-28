@@ -4,13 +4,22 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>מעקב מנויי מזון - אניפט</title>
-<link rel="stylesheet" href="styles.css?v=4" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='6' y='11' width='20' height='17' rx='3' fill='%23c1502e'/%3E%3Cpath d='M11 11v-2a5 5 0 0 1 10 0v2' fill='none' stroke='%23c1502e' stroke-width='2.5'/%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" />
+<link rel="stylesheet" href="styles.css?v=5" />
 </head>
 <body>
 <header class="app-header">
-	<h1>מעקב מנויי שקי מזון</h1>
+	<div class="app-header-titles">
+		<span class="app-eyebrow">אניפט · מעקב מנויים</span>
+		<h1>מנויי שקי מזון</h1>
+	</div>
 	<button id="btn-add-customer" class="btn btn-primary">+ צירוף לקוח חדש</button>
 </header>
+
+<div id="stat-strip" class="stat-strip"></div>
 
 <main id="app">
 	<div id="toast" class="toast hidden"></div>
@@ -21,12 +30,13 @@
 
 	<section class="table-section">
 		<h2>לקוחות במעקב</h2>
-		<p class="section-hint">
-			<span class="dot dot-green"></span> לשלוח הודעה כבר עכשיו (מוקדם מהתאריך המשוער - כדי להקדים סניפים אחרים; כמה מוקדם תלוי בתדירות הלקוח)
-			<span class="dot dot-orange"></span> בקרוב - כדאי להתחיל להתכונן
-			<span class="dot dot-red"></span> יש עוד זמן
-			<span class="dot dot-unknown"></span> אין מספיק היסטוריה
-		</p>
+		<div class="legend">
+			<span class="legend-chip"><i class="dot dot-green"></i>אפשר לשלוח עכשיו</span>
+			<span class="legend-chip"><i class="dot dot-orange"></i>בקרוב</span>
+			<span class="legend-chip"><i class="dot dot-red"></i>יש עוד זמן</span>
+			<span class="legend-chip"><i class="dot dot-unknown"></i>אין מספיק היסטוריה</span>
+			<span class="legend-note">הזמן המומלץ מתאים את עצמו לתדירות המשיכה של כל לקוח - כדי להקדים סניפים אחרים ברשת</span>
+		</div>
 		<div class="table-wrap">
 			<table id="table-main">
 				<thead>
@@ -86,7 +96,7 @@
 	<div class="modal" id="modal"></div>
 </div>
 
-<script src="config.js?v=4"></script>
-<script src="app.js?v=4"></script>
+<script src="config.js?v=5"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>
