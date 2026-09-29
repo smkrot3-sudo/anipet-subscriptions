@@ -57,7 +57,39 @@ function toWhatsappLink(phone, message) {
 	let digits = (phone || "").replace(/[^\d]/g, "");
 	if (digits.startsWith("0")) digits = "972" + digits.slice(1);
 	const text = encodeURIComponent(message || "");
-	return `https://wa.me/${digits}${text ? `?text=${text}` : ""}`;
+	return `whatsapp://send?phone=${digits}${text ? `&text=${text}` : ""}`;
+}
+
+function copyIcon() {
+	return `<svg width="13" height="13" viewBox="0 0 16 16" aria-hidden="true"><rect x="5.5" y="5.5" width="8.5" height="8.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M2.5 10V3.5A1.5 1.5 0 0 1 4 2h6.5" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>`;
+}
+
+async function copyToClipboard(text) {
+	if (navigator.clipboard?.writeText) {
+		try {
+			await navigator.clipboard.writeText(text);
+			return;
+		} catch {
+			// fall through to the legacy fallback below
+		}
+	}
+	const input = document.createElement("textarea");
+	input.value = text;
+	input.style.position = "fixed";
+	input.style.opacity = "0";
+	document.body.appendChild(input);
+	input.focus();
+	input.select();
+	const ok = document.execCommand("copy");
+	document.body.removeChild(input);
+	if (!ok) throw new Error("copy failed");
+}
+
+function phoneCell(phone) {
+	return `<span class="phone-cell">
+		<a class="phone-link" href="tel:${escapeHtml(phone)}">${escapeHtml(phone)}</a>
+		<button type="button" class="icon-btn" data-action="copy-phone" data-phone="${escapeHtml(phone)}" title="העתקת מספר טלפון" aria-label="העתקת מספר טלפון">${copyIcon()}</button>
+	</span>`;
 }
 
 function fmtDate(d) {
@@ -171,6 +203,14 @@ function notesLine(c) {
 	return c.notes ? `<div class="notes-line">${escapeHtml(c.notes)}</div>` : "";
 }
 
+function awaitingBadge(c) {
+	return c.awaitingReply ? '<span class="awaiting-badge">ממתין לתשובה</span>' : "";
+}
+
+function awaitingButton(c) {
+	return `<button class="btn" data-action="toggle-awaiting" data-id="${c.id}">${c.awaitingReply ? "בטל סימון תשובה" : "סימון: ממתין לתשובה"}</button>`;
+}
+
 function renderMain(rows) {
 	document.querySelector("#table-main").parentElement.nextElementSibling.classList.toggle("hidden", rows.length > 0);
 	el.mainBody.innerHTML = rows
@@ -178,10 +218,10 @@ function renderMain(rows) {
 			(c) => `
 		<tr class="${colorLabel(c.color)}">
 			<td class="name-cell">
-				<div class="name-line">${statusChip(c.color)}<span>${escapeHtml(c.name)}</span></div>
+				<div class="name-line">${statusChip(c.color)}${awaitingBadge(c)}<span>${escapeHtml(c.name)}</span></div>
 				${notesLine(c)}
 			</td>
-			<td data-label="טלפון"><a class="phone-link" href="tel:${escapeHtml(c.phone)}">${escapeHtml(c.phone)}</a></td>
+			<td data-label="טלפון">${phoneCell(c.phone)}</td>
 			<td data-label="שקים שנשארו">${bagGauge(c.id, c.bagsRemaining)}</td>
 			<td data-label="משיכה אחרונה" class="date-cell">${fmtDate(c.lastWithdrawal)}</td>
 			<td data-label="תאריך משוער הבא" class="date-cell">${fmtDate(c.nextEstimate)}</td>
@@ -189,6 +229,7 @@ function renderMain(rows) {
 				<button class="btn btn-whatsapp" data-action="whatsapp" data-template="reminder" data-id="${c.id}">וואטסאפ</button>
 				<button class="btn" data-action="withdraw" data-id="${c.id}">סימון משיכה</button>
 				<button class="btn" data-action="wait" data-id="${c.id}">עדיין לא צריך</button>
+				${awaitingButton(c)}
 				<button class="btn" data-action="history" data-id="${c.id}">היסטוריה</button>
 				<button class="btn" data-action="edit" data-id="${c.id}">עריכה</button>
 				<button class="btn btn-danger" data-action="delete" data-id="${c.id}">מחיקה</button>
@@ -205,13 +246,16 @@ function renderWaiting(rows) {
 			(c) => `
 		<tr class="${c.readyToContact ? "row-green" : ""}">
 			<td class="name-cell">
-				<div class="name-line">${statusChip(c.readyToContact ? "green" : "unknown", c.readyToContact ? "מוכן לחזרה" : "בהמתנה")}<span>${escapeHtml(c.name)}</span></div>
+				<div class="name-line">${statusChip(c.readyToContact ? "green" : "unknown", c.readyToContact ? "מוכן לחזרה" : "בהמתנה")}${awaitingBadge(c)}<span>${escapeHtml(c.name)}</span></div>
 				${notesLine(c)}
 			</td>
-			<td data-label="טלפון"><a class="phone-link" href="tel:${escapeHtml(c.phone)}">${escapeHtml(c.phone)}</a></td>
+			<td data-label="טלפון">${phoneCell(c.phone)}</td>
 			<td data-label="לחזור אליו בתאריך" class="date-cell">${fmtDate(c.waitingUntil)}</td>
 			<td class="actions-cell">
+				<button class="btn btn-whatsapp" data-action="whatsapp" data-template="waiting" data-id="${c.id}">וואטסאפ</button>
 				<button class="btn" data-action="withdraw" data-id="${c.id}">משך שק</button>
+				<button class="btn" data-action="extend-wait" data-id="${c.id}">הארכת המתנה</button>
+				${awaitingButton(c)}
 				<button class="btn" data-action="unwait" data-id="${c.id}">חזרה למעקב רגיל</button>
 			</td>
 		</tr>`
@@ -226,14 +270,15 @@ function renderLastBag(rows) {
 			(c) => `
 		<tr class="${c.bagsRemaining === 0 ? "row-red" : "row-orange"}">
 			<td class="name-cell">
-				<div class="name-line">${statusChip(c.bagsRemaining === 0 ? "red" : "orange", c.bagsRemaining === 0 ? "אין שקים" : "שק אחרון")}<span>${escapeHtml(c.name)}</span></div>
+				<div class="name-line">${statusChip(c.bagsRemaining === 0 ? "red" : "orange", c.bagsRemaining === 0 ? "אין שקים" : "שק אחרון")}${awaitingBadge(c)}<span>${escapeHtml(c.name)}</span></div>
 				${notesLine(c)}
 			</td>
-			<td data-label="טלפון"><a class="phone-link" href="tel:${escapeHtml(c.phone)}">${escapeHtml(c.phone)}</a></td>
+			<td data-label="טלפון">${phoneCell(c.phone)}</td>
 			<td data-label="שקים שנשארו">${bagGauge(c.id, c.bagsRemaining)}</td>
 			<td class="actions-cell">
 				<button class="btn btn-whatsapp" data-action="whatsapp" data-template="renew" data-id="${c.id}">וואטסאפ</button>
 				<button class="btn btn-primary" data-action="renew" data-id="${c.id}">חודש</button>
+				${awaitingButton(c)}
 			</td>
 		</tr>`
 		)
@@ -364,12 +409,12 @@ function openWithdrawModal(id) {
 	);
 }
 
-function openWaitModal(id) {
+function openWaitModal(id, isExtend) {
 	openModal(
 		`
-		<h3>הלקוח עדיין לא צריך שק</h3>
+		<h3>${isExtend ? "הארכת זמן המתנה" : "הלקוח עדיין לא צריך שק"}</h3>
 		<div class="field">
-			<label>לחזור אליו בעוד כמה ימים?</label>
+			<label>לחזור אליו בעוד כמה ימים (מהיום)?</label>
 			<input type="number" id="f-days" value="7" min="0" />
 		</div>
 		<div class="modal-actions">
@@ -510,6 +555,7 @@ function openHistoryModal(id) {
 const WHATSAPP_TEMPLATES = {
 	reminder: (name) => `היי ${name}! רצינו לבדוק אם תרצו שנוציא לכם שק מזון במשלוח 🐾`,
 	renew: (name) => `היי ${name}! שמנו לב שנשאר לכם שק אחרון במנוי - רוצים לחדש?`,
+	waiting: (name) => `היי ${name}! רק בודקים - כבר אפשר להוציא לכם שק מזון?`,
 };
 
 function openWhatsappModal(id, template) {
@@ -546,6 +592,25 @@ document.getElementById("app").addEventListener("click", async (e) => {
 
 	if (action === "withdraw") return openWithdrawModal(customerId);
 	if (action === "wait") return openWaitModal(customerId);
+	if (action === "extend-wait") return openWaitModal(customerId, true);
+	if (action === "copy-phone") {
+		copyToClipboard(btn.dataset.phone)
+			.then(() => showToast("המספר הועתק"))
+			.catch(() => showToast("לא ניתן להעתיק את המספר", true));
+		return;
+	}
+	if (action === "toggle-awaiting") {
+		const c = findCustomer(customerId);
+		if (!c) return;
+		try {
+			await api(`/api/customers/${customerId}`, { method: "PATCH", body: { awaitingReply: !c.awaitingReply } });
+			showToast(c.awaitingReply ? "הסימון בוטל" : "סומן כממתין לתשובה");
+			refresh();
+		} catch (err) {
+			showToast(err.message, true);
+		}
+		return;
+	}
 	if (action === "edit") {
 		await refresh();
 		return openEditModal(customerId);

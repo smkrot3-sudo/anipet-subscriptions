@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS customers (
   notes TEXT,
   removed_at TEXT,
   removal_reason TEXT,
+  awaiting_reply INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );

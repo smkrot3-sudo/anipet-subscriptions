@@ -99,6 +99,7 @@ async function buildCustomerViews(db) {
 			color: waiting ? "waiting" : colorFor(nextEstimate, today, avgIntervalDays),
 			isLastBag: c.bags_remaining <= 1,
 			isWaiting: waiting,
+			awaitingReply: !!c.awaiting_reply,
 			withdrawals: history.map((h) => ({ id: h.id, takenAt: h.taken_at, bags: h.bags })),
 		};
 	});
@@ -239,6 +240,10 @@ async function handleRequest(request, env) {
 				updates.push("notes = ?");
 				values.push(body.notes);
 			}
+			if (typeof body.awaitingReply === "boolean") {
+				updates.push("awaiting_reply = ?");
+				values.push(body.awaitingReply ? 1 : 0);
+			}
 			if (updates.length === 0) return error("אין מה לעדכן");
 			updates.push("updated_at = datetime('now')");
 			values.push(id);
@@ -264,7 +269,7 @@ async function handleRequest(request, env) {
 			await db.prepare("INSERT INTO withdrawals (customer_id, taken_at, bags) VALUES (?, ?, ?)").bind(id, takenAt, bags).run();
 			const newRemaining = Math.max(0, customer.bags_remaining - bags);
 			await db
-				.prepare("UPDATE customers SET bags_remaining = ?, waiting_until = NULL, updated_at = datetime('now') WHERE id = ?")
+				.prepare("UPDATE customers SET bags_remaining = ?, waiting_until = NULL, awaiting_reply = 0, updated_at = datetime('now') WHERE id = ?")
 				.bind(newRemaining, id)
 				.run();
 			return json({ ok: true, bagsRemaining: newRemaining });
@@ -280,7 +285,7 @@ async function handleRequest(request, env) {
 			} else {
 				followUpDate = addDaysISO(todayISO(), 7);
 			}
-			await db.prepare("UPDATE customers SET waiting_until = ?, updated_at = datetime('now') WHERE id = ?").bind(followUpDate, id).run();
+			await db.prepare("UPDATE customers SET waiting_until = ?, awaiting_reply = 0, updated_at = datetime('now') WHERE id = ?").bind(followUpDate, id).run();
 			return json({ ok: true, waitingUntil: followUpDate });
 		}
 
@@ -292,7 +297,7 @@ async function handleRequest(request, env) {
 		if (request.method === "POST" && action === "renew") {
 			const newRemaining = customer.bags_remaining + RENEW_ADD_BAGS;
 			await db
-				.prepare("UPDATE customers SET bags_remaining = ?, waiting_until = NULL, updated_at = datetime('now') WHERE id = ?")
+				.prepare("UPDATE customers SET bags_remaining = ?, waiting_until = NULL, awaiting_reply = 0, updated_at = datetime('now') WHERE id = ?")
 				.bind(newRemaining, id)
 				.run();
 			return json({ ok: true, bagsRemaining: newRemaining });

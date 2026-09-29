@@ -1,0 +1,1 @@
+ALTER TABLE customers ADD COLUMN awaiting_reply INTEGER NOT NULL DEFAULT 0;
