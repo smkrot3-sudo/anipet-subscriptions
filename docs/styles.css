@@ -544,6 +544,22 @@ td.date-cell, .date-cell { font-variant-numeric: tabular-nums; color: var(--ink-
 }
 .empty-hint.hidden { display: none; }
 
+.pagination {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 14px;
+	padding-top: 16px;
+}
+.pagination:empty { padding: 0; }
+
+.pagination-label {
+	font-size: 12.5px;
+	color: var(--ink-muted);
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+}
+
 .modal-backdrop {
 	position: fixed;
 	inset: 0;

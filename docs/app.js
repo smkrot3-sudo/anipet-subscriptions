@@ -224,6 +224,9 @@ function sortMainRows(rows, mode) {
 	return copy; // "urgency" - the server already returns this order
 }
 
+const MAIN_PAGE_SIZE = 25;
+let mainPage = 1;
+
 function applyFilter() {
 	const q = (el.search.value || "").trim().toLowerCase();
 	const match = (c) => !q || c.name.toLowerCase().includes(q) || c.phone.includes(q);
@@ -232,7 +235,13 @@ function applyFilter() {
 	if (statusFilter) main = main.filter((c) => c.color === statusFilter);
 	main = sortMainRows(main, el.sort.value);
 
-	renderMain(main);
+	const totalPages = Math.max(1, Math.ceil(main.length / MAIN_PAGE_SIZE));
+	if (mainPage > totalPages) mainPage = totalPages;
+	if (mainPage < 1) mainPage = 1;
+	const pageRows = main.slice((mainPage - 1) * MAIN_PAGE_SIZE, mainPage * MAIN_PAGE_SIZE);
+
+	renderMain(pageRows);
+	renderMainPagination(main.length, totalPages);
 	renderWaiting(allGroups.waitingList.filter(match));
 	renderLastBag(allGroups.lastBag.filter(match));
 
@@ -241,12 +250,41 @@ function applyFilter() {
 	});
 }
 
-el.search.addEventListener("input", applyFilter);
-el.sort.addEventListener("change", applyFilter);
+function renderMainPagination(total, totalPages) {
+	const wrap = document.getElementById("main-pagination");
+	if (totalPages <= 1) {
+		wrap.innerHTML = "";
+		return;
+	}
+	wrap.innerHTML = `
+		<button type="button" class="btn" id="main-prev"${mainPage <= 1 ? " disabled" : ""}>הקודם</button>
+		<span class="pagination-label">עמוד ${mainPage} מתוך ${totalPages} (${total} לקוחות)</span>
+		<button type="button" class="btn" id="main-next"${mainPage >= totalPages ? " disabled" : ""}>הבא</button>`;
+	wrap.querySelector("#main-prev")?.addEventListener("click", () => {
+		mainPage--;
+		applyFilter();
+		document.querySelector(".page.active")?.scrollIntoView({ behavior: "smooth", block: "start" });
+	});
+	wrap.querySelector("#main-next")?.addEventListener("click", () => {
+		mainPage++;
+		applyFilter();
+		document.querySelector(".page.active")?.scrollIntoView({ behavior: "smooth", block: "start" });
+	});
+}
+
+el.search.addEventListener("input", () => {
+	mainPage = 1;
+	applyFilter();
+});
+el.sort.addEventListener("change", () => {
+	mainPage = 1;
+	applyFilter();
+});
 
 document.querySelectorAll(".legend-chip").forEach((chip) => {
 	chip.addEventListener("click", () => {
 		statusFilter = statusFilter === chip.dataset.filter ? null : chip.dataset.filter;
+		mainPage = 1;
 		applyFilter();
 	});
 });
