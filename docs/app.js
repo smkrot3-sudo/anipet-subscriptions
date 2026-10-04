@@ -650,16 +650,19 @@ function firstName(fullName) {
 // us, so this is their first-ever WhatsApp contact and gets the full introduction.
 // Everyone else gets one of several equivalent, varied check-in messages so repeat
 // outreach doesn't read as a copy-pasted bot message.
+// Always plural ("אתם"/"לכם"/"רוצים"), never gendered singular ("אתה"/"את") -
+// a message list mixes customers of both genders and we don't track gender,
+// so plural phrasing (standard in Hebrew business messaging) avoids guessing wrong.
 function newContactMessage(name) {
-	return `שלום ${name}, זה מאניפט! 🐾 מה שלומך? 😊 אנחנו רואים שזה פחות או יותר הזמן שבו אתה לוקח שק מזון מהמנוי שלך, תרצה שנשלח לך הביתה שק נוסף מהמנוי? 📦🚚 המשלוח ללא עלות כמובן! 🎁`;
+	return `שלום ${name}, זה מאניפט! 🐾 מה שלומכם? 😊 אנחנו רואים שזה פחות או יותר הזמן שבו אתם לוקחים שק מזון מהמנוי שלכם, תרצו שנשלח לכם הביתה שק נוסף מהמנוי? 📦🚚 המשלוח ללא עלות כמובן! 🎁`;
 }
 
 const RETURNING_CONTACT_MESSAGES = [
-	(name) => `מה נשמע ${name}? 😊 בא לך שנוציא לך שק נוסף במשלוח? 🐾📦`,
-	(name) => `היי ${name}! מה קורה? 🙌 רוצה שנשלח לך שק נוסף הביתה? 🚚🐶`,
-	(name) => `${name}, מה המצב? 😄 יש לנו שק מוכן בשבילך - רוצה שנוציא במשלוח? 📦🐾`,
-	(name) => `שלום ${name} 👋 איך הולך? רוצה ששק נוסף יגיע הביתה? 🐾`,
-	(name) => `מה נשמע ${name}? 😊 אפשר להוציא לך שק נוסף במשלוח, רוצה? 🚚`,
+	(name) => `מה נשמע ${name}? 😊 בא לכם שנוציא לכם שק נוסף במשלוח? 🐾📦`,
+	(name) => `היי ${name}! מה קורה? 🙌 רוצים שנשלח לכם שק נוסף הביתה? 🚚🐶`,
+	(name) => `${name}, מה המצב? 😄 יש לנו שק מוכן בשבילכם - רוצים שנוציא במשלוח? 📦🐾`,
+	(name) => `שלום ${name} 👋 איך הולך? רוצים ששק נוסף יגיע הביתה? 🐾`,
+	(name) => `מה נשמע ${name}? 😊 אפשר להוציא לכם שק נוסף במשלוח, רוצים? 🚚`,
 ];
 
 function returningContactMessage(name) {
