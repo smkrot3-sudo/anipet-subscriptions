@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" />
-<link rel="stylesheet" href="styles.css?v=8" />
+<link rel="stylesheet" href="styles.css?v=9" />
 </head>
 <body>
 <header class="app-header">
@@ -19,90 +19,113 @@
 	<button id="btn-add-customer" class="btn btn-primary">+ צירוף לקוח חדש</button>
 </header>
 
+<nav class="page-nav" id="page-nav">
+	<button type="button" class="nav-btn" data-view="main">
+		<span>מעקב כללי</span>
+		<div class="nav-tooltip" id="tooltip-main"></div>
+	</button>
+	<button type="button" class="nav-btn" data-view="waiting">
+		<span>ממתינים</span>
+		<span class="nav-badge" id="badge-waiting" hidden></span>
+		<div class="nav-tooltip" id="tooltip-waiting"></div>
+	</button>
+	<button type="button" class="nav-btn" data-view="lastbag">
+		<span>חידוש מנוי</span>
+		<span class="nav-badge" id="badge-lastbag" hidden></span>
+		<div class="nav-tooltip" id="tooltip-lastbag"></div>
+	</button>
+</nav>
+
 <div id="stat-strip" class="stat-strip"></div>
 
 <main id="app">
 	<div id="toast" class="toast hidden"></div>
 
-	<div class="toolbar">
-		<input type="search" id="search-box" placeholder="חיפוש לפי שם או טלפון..." />
-		<select id="sort-select" aria-label="מיון">
-			<option value="urgency">מיון: לפי דחיפות</option>
-			<option value="name">מיון: לפי שם (א-ב)</option>
-			<option value="bags">מיון: לפי שקים שנשארו</option>
-			<option value="date">מיון: לפי תאריך משוער</option>
-		</select>
+	<div class="page" data-page="main">
+		<div class="toolbar">
+			<input type="search" id="search-box" placeholder="חיפוש לפי שם או טלפון..." />
+			<select id="sort-select" aria-label="מיון">
+				<option value="urgency">מיון: לפי דחיפות</option>
+				<option value="name">מיון: לפי שם (א-ב)</option>
+				<option value="bags">מיון: לפי שקים שנשארו</option>
+				<option value="date">מיון: לפי תאריך משוער</option>
+			</select>
+		</div>
+
+		<section class="table-section">
+			<h2>לקוחות במעקב</h2>
+			<div class="legend">
+				<button type="button" class="legend-chip" data-filter="green"><i class="dot dot-green"></i>אפשר לשלוח עכשיו</button>
+				<button type="button" class="legend-chip" data-filter="orange"><i class="dot dot-orange"></i>בקרוב</button>
+				<button type="button" class="legend-chip" data-filter="red"><i class="dot dot-red"></i>יש עוד זמן</button>
+				<button type="button" class="legend-chip" data-filter="unknown"><i class="dot dot-unknown"></i>אין מספיק היסטוריה</button>
+				<span class="legend-note">הזמן המומלץ מתאים את עצמו לתדירות המשיכה של כל לקוח - כדי להקדים סניפים אחרים ברשת. לחיצה על תווית מסננת לפי אותו סטטוס.</span>
+			</div>
+			<div class="table-wrap">
+				<table id="table-main">
+					<thead>
+						<tr>
+							<th>לקוח</th>
+							<th>טלפון</th>
+							<th>שקים שנשארו</th>
+							<th>משיכה אחרונה</th>
+							<th>תאריך משוער הבא</th>
+							<th>פעולות</th>
+						</tr>
+					</thead>
+					<tbody></tbody>
+				</table>
+			</div>
+			<p class="empty-hint hidden">אין לקוחות להצגה</p>
+		</section>
 	</div>
 
-	<section class="table-section">
-		<h2>לקוחות במעקב</h2>
-		<div class="legend">
-			<button type="button" class="legend-chip" data-filter="green"><i class="dot dot-green"></i>אפשר לשלוח עכשיו</button>
-			<button type="button" class="legend-chip" data-filter="orange"><i class="dot dot-orange"></i>בקרוב</button>
-			<button type="button" class="legend-chip" data-filter="red"><i class="dot dot-red"></i>יש עוד זמן</button>
-			<button type="button" class="legend-chip" data-filter="unknown"><i class="dot dot-unknown"></i>אין מספיק היסטוריה</button>
-			<span class="legend-note">הזמן המומלץ מתאים את עצמו לתדירות המשיכה של כל לקוח - כדי להקדים סניפים אחרים ברשת. לחיצה על תווית מסננת לפי אותו סטטוס.</span>
-		</div>
-		<div class="table-wrap">
-			<table id="table-main">
-				<thead>
-					<tr>
-						<th>לקוח</th>
-						<th>טלפון</th>
-						<th>שקים שנשארו</th>
-						<th>משיכה אחרונה</th>
-						<th>תאריך משוער הבא</th>
-						<th>פעולות</th>
-					</tr>
-				</thead>
-				<tbody></tbody>
-			</table>
-		</div>
-		<p class="empty-hint hidden">אין לקוחות להצגה</p>
-	</section>
+	<div class="page" data-page="waiting">
+		<section class="table-section">
+			<h2>ממתינים - עוד לא צריכים שק</h2>
+			<div class="table-wrap">
+				<table id="table-waiting">
+					<thead>
+						<tr>
+							<th>לקוח</th>
+							<th>טלפון</th>
+							<th>לחזור אליו בתאריך</th>
+							<th>פעולות</th>
+						</tr>
+					</thead>
+					<tbody></tbody>
+				</table>
+			</div>
+			<p class="empty-hint hidden">אין לקוחות ברשימת ההמתנה</p>
+		</section>
+	</div>
 
-	<section class="table-section">
-		<h2>ממתינים - עוד לא צריכים שק</h2>
-		<div class="table-wrap">
-			<table id="table-waiting">
-				<thead>
-					<tr>
-						<th>לקוח</th>
-						<th>טלפון</th>
-						<th>לחזור אליו בתאריך</th>
-						<th>פעולות</th>
-					</tr>
-				</thead>
-				<tbody></tbody>
-			</table>
-		</div>
-		<p class="empty-hint hidden">אין לקוחות ברשימת ההמתנה</p>
-	</section>
-
-	<section class="table-section">
-		<h2>נשאר שק אחרון - להציע חידוש</h2>
-		<div class="table-wrap">
-			<table id="table-lastbag">
-				<thead>
-					<tr>
-						<th>לקוח</th>
-						<th>טלפון</th>
-						<th>שקים שנשארו</th>
-						<th>פעולות</th>
-					</tr>
-				</thead>
-				<tbody></tbody>
-			</table>
-		</div>
-		<p class="empty-hint hidden">אין לקוחות שצריכים חידוש</p>
-	</section>
+	<div class="page" data-page="lastbag">
+		<section class="table-section">
+			<h2>נשאר שק אחרון - להציע חידוש</h2>
+			<div class="table-wrap">
+				<table id="table-lastbag">
+					<thead>
+						<tr>
+							<th>לקוח</th>
+							<th>טלפון</th>
+							<th>שקים שנשארו</th>
+							<th>פעולות</th>
+						</tr>
+					</thead>
+					<tbody></tbody>
+				</table>
+			</div>
+			<p class="empty-hint hidden">אין לקוחות שצריכים חידוש</p>
+		</section>
+	</div>
 </main>
 
 <div id="modal-backdrop" class="modal-backdrop hidden">
 	<div class="modal" id="modal"></div>
 </div>
 
-<script src="config.js?v=8"></script>
-<script src="app.js?v=8"></script>
+<script src="config.js?v=9"></script>
+<script src="app.js?v=9"></script>
 </body>
 </html>

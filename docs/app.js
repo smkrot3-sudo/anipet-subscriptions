@@ -137,11 +137,63 @@ async function refresh() {
 	try {
 		allGroups = await api("/api/customers");
 		renderStatStrip();
+		updateNav();
 		applyFilter();
 	} catch (err) {
 		showToast(err.message, true);
 	}
 }
+
+function updateNav() {
+	const readyNow = allGroups.main.filter((c) => c.color === "green").length;
+	const soon = allGroups.main.filter((c) => c.color === "orange").length;
+	const waitingReady = allGroups.waitingList.filter((c) => c.readyToContact).length;
+	const lastBagCount = allGroups.lastBag.length;
+
+	const waitingBadge = document.getElementById("badge-waiting");
+	waitingBadge.textContent = String(waitingReady);
+	waitingBadge.hidden = waitingReady === 0;
+
+	const lastBagBadge = document.getElementById("badge-lastbag");
+	lastBagBadge.textContent = String(lastBagCount);
+	lastBagBadge.hidden = lastBagCount === 0;
+
+	document.getElementById("tooltip-main").textContent =
+		readyNow || soon
+			? `${readyNow} אפשר לשלוח להם הודעה כבר עכשיו, ועוד ${soon} בקרוב.`
+			: "אין כרגע לקוחות שצריך לשלוח להם הודעה.";
+
+	document.getElementById("tooltip-waiting").textContent =
+		waitingReady > 0
+			? `יש ${waitingReady} אנשים שאפשר לחזור אליהם עכשיו, אחרי שהתאריך שסימנתם עבורם הגיע.`
+			: "אין כרגע אנשים שצריך לחזור אליהם - כולם עדיין בתקופת ההמתנה שסומנה.";
+
+	document.getElementById("tooltip-lastbag").textContent =
+		lastBagCount > 0
+			? `יש ${lastBagCount} לקוחות עם שק אחרון (או בלי שקים בכלל) שכדאי להציע להם לחדש את המנוי.`
+			: "אין כרגע לקוחות שצריכים חידוש מנוי.";
+}
+
+const PAGES = ["main", "waiting", "lastbag"];
+
+function viewFromHash() {
+	const v = (location.hash || "").replace("#", "");
+	return PAGES.includes(v) ? v : "main";
+}
+
+function showPage(view) {
+	if (!PAGES.includes(view)) view = "main";
+	document.querySelectorAll(".page").forEach((el) => el.classList.toggle("active", el.dataset.page === view));
+	document.querySelectorAll(".nav-btn").forEach((btn) => btn.classList.toggle("active", btn.dataset.view === view));
+}
+
+document.querySelectorAll(".nav-btn").forEach((btn) => {
+	btn.addEventListener("click", () => {
+		location.hash = btn.dataset.view;
+	});
+});
+window.addEventListener("hashchange", () => showPage(viewFromHash()));
+showPage(viewFromHash());
 
 function renderStatStrip() {
 	const readyNow = allGroups.main.filter((c) => c.color === "green").length;
@@ -552,16 +604,41 @@ function openHistoryModal(id) {
 	);
 }
 
+function firstName(fullName) {
+	return (fullName || "").trim().split(/\s+/)[0] || fullName || "";
+}
+
+// A customer with no withdrawal history yet has never actually received a bag from
+// us, so this is their first-ever WhatsApp contact and gets the full introduction.
+// Everyone else gets one of several equivalent, varied check-in messages so repeat
+// outreach doesn't read as a copy-pasted bot message.
+function newContactMessage(name) {
+	return `שלום ${name}, זה מאניפט! 🐾 מה שלומך? 😊 אנחנו רואים שזה פחות או יותר הזמן שבו אתה לוקח שק מזון מהמנוי שלך, תרצה שנשלח לך הביתה שק נוסף מהמנוי? 📦🚚 המשלוח ללא עלות כמובן! 🎁`;
+}
+
+const RETURNING_CONTACT_MESSAGES = [
+	(name) => `מה נשמע ${name}? 😊 בא לך שנוציא לך שק נוסף במשלוח? 🐾📦`,
+	(name) => `היי ${name}! מה קורה? 🙌 רוצה שנשלח לך שק נוסף הביתה? 🚚🐶`,
+	(name) => `${name}, מה המצב? 😄 יש לנו שק מוכן בשבילך - רוצה שנוציא במשלוח? 📦🐾`,
+	(name) => `שלום ${name} 👋 איך הולך? רוצה ששק נוסף יגיע הביתה? 🐾`,
+	(name) => `מה נשמע ${name}? 😊 אפשר להוציא לך שק נוסף במשלוח, רוצה? 🚚`,
+];
+
+function returningContactMessage(name) {
+	const fn = RETURNING_CONTACT_MESSAGES[Math.floor(Math.random() * RETURNING_CONTACT_MESSAGES.length)];
+	return fn(name);
+}
+
 const WHATSAPP_TEMPLATES = {
-	reminder: (name) => `היי ${name}! רצינו לבדוק אם תרצו שנוציא לכם שק מזון במשלוח 🐾`,
-	renew: (name) => `היי ${name}! שמנו לב שנשאר לכם שק אחרון במנוי - רוצים לחדש?`,
-	waiting: (name) => `היי ${name}! רק בודקים - כבר אפשר להוציא לכם שק מזון?`,
+	renew: (name) => `היי ${name}! שמנו לב שנשאר לכם שק אחרון במנוי - רוצים לחדש? 🐾`,
 };
 
 function openWhatsappModal(id, template) {
 	const c = findCustomer(id);
 	if (!c) return;
-	const defaultMessage = (WHATSAPP_TEMPLATES[template] || WHATSAPP_TEMPLATES.reminder)(c.name);
+	const name = firstName(c.name);
+	const defaultMessage =
+		template === "renew" ? WHATSAPP_TEMPLATES.renew(name) : c.whatsappContactedAt ? returningContactMessage(name) : newContactMessage(name);
 	openModal(
 		`
 		<h3>הודעת וואטסאפ ל${escapeHtml(c.name)}</h3>
@@ -579,6 +656,11 @@ function openWhatsappModal(id, template) {
 				const msg = modal.querySelector("#f-msg").value;
 				window.open(toWhatsappLink(c.phone, msg), "_blank", "noopener");
 				closeModal();
+				if (!c.whatsappContactedAt) {
+					api(`/api/customers/${id}`, { method: "PATCH", body: { markWhatsappContacted: true } })
+						.then(refresh)
+						.catch(() => {});
+				}
 			});
 		}
 	);

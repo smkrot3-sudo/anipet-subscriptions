@@ -100,6 +100,7 @@ async function buildCustomerViews(db) {
 			isLastBag: c.bags_remaining <= 1,
 			isWaiting: waiting,
 			awaitingReply: !!c.awaiting_reply,
+			whatsappContactedAt: c.whatsapp_contacted_at,
 			withdrawals: history.map((h) => ({ id: h.id, takenAt: h.taken_at, bags: h.bags })),
 		};
 	});
@@ -243,6 +244,9 @@ async function handleRequest(request, env) {
 			if (typeof body.awaitingReply === "boolean") {
 				updates.push("awaiting_reply = ?");
 				values.push(body.awaitingReply ? 1 : 0);
+			}
+			if (body.markWhatsappContacted === true) {
+				updates.push("whatsapp_contacted_at = COALESCE(whatsapp_contacted_at, datetime('now'))");
 			}
 			if (updates.length === 0) return error("אין מה לעדכן");
 			updates.push("updated_at = datetime('now')");
