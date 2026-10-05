@@ -85,6 +85,7 @@ async function buildCustomerViews(db) {
 		const history = byCustomer.get(c.id) || [];
 		const { avgIntervalDays, nextEstimate, lastWithdrawal } = computeEstimate(history);
 		const waiting = !!c.waiting_until;
+		const renewalWaiting = !!c.renewal_waiting_until;
 		return {
 			id: c.id,
 			name: c.name,
@@ -92,6 +93,9 @@ async function buildCustomerViews(db) {
 			bagsRemaining: c.bags_remaining,
 			notes: c.notes || "",
 			waitingUntil: c.waiting_until,
+			waitNote: c.wait_note || "",
+			renewalWaitingUntil: c.renewal_waiting_until,
+			renewalWaitNote: c.renewal_wait_note || "",
 			historyCount: history.length,
 			lastWithdrawal,
 			avgIntervalDays: avgIntervalDays === null ? null : Math.round(avgIntervalDays * 10) / 10,
@@ -99,6 +103,7 @@ async function buildCustomerViews(db) {
 			color: waiting ? "waiting" : colorFor(nextEstimate, today, avgIntervalDays),
 			isLastBag: c.bags_remaining <= 1,
 			isWaiting: waiting,
+			isRenewalWaiting: renewalWaiting,
 			awaitingReply: !!c.awaiting_reply,
 			whatsappContactedAt: c.whatsapp_contacted_at,
 			withdrawals: history.map((h) => ({ id: h.id, takenAt: h.taken_at, bags: h.bags })),
@@ -126,10 +131,15 @@ function splitGroups(views, today) {
 		.map((v) => ({ ...v, readyToContact: v.waitingUntil <= today }));
 
 	const lastBag = views
-		.filter((v) => v.isLastBag && !v.isWaiting)
+		.filter((v) => v.isLastBag && !v.isWaiting && !v.isRenewalWaiting)
 		.sort((a, b) => a.bagsRemaining - b.bagsRemaining || a.name.localeCompare(b.name, "he"));
 
-	return { main, waitingList, lastBag };
+	const lastBagWaitingList = views
+		.filter((v) => v.isLastBag && !v.isWaiting && v.isRenewalWaiting)
+		.sort((a, b) => (a.renewalWaitingUntil < b.renewalWaitingUntil ? -1 : a.renewalWaitingUntil > b.renewalWaitingUntil ? 1 : 0))
+		.map((v) => ({ ...v, renewalReadyToContact: v.renewalWaitingUntil <= today }));
+
+	return { main, waitingList, lastBag, lastBagWaitingList };
 }
 
 async function handleRequest(request, env) {
@@ -209,7 +219,7 @@ async function handleRequest(request, env) {
 		return json({ id: customerId }, 201);
 	}
 
-	const idMatch = pathname.match(/^\/api\/customers\/(\d+)(?:\/(withdraw|wait|renew|unwait))?$/);
+	const idMatch = pathname.match(/^\/api\/customers\/(\d+)(?:\/(withdraw|wait|renew|unwait|renewal-wait|renewal-unwait))?$/);
 	if (idMatch) {
 		const id = Number(idMatch[1]);
 		const action = idMatch[2];
@@ -289,22 +299,54 @@ async function handleRequest(request, env) {
 			} else {
 				followUpDate = addDaysISO(todayISO(), 7);
 			}
-			await db.prepare("UPDATE customers SET waiting_until = ?, awaiting_reply = 0, updated_at = datetime('now') WHERE id = ?").bind(followUpDate, id).run();
+			const note = typeof body?.note === "string" ? body.note.trim() : "";
+			await db
+				.prepare("UPDATE customers SET waiting_until = ?, wait_note = ?, awaiting_reply = 0, updated_at = datetime('now') WHERE id = ?")
+				.bind(followUpDate, note, id)
+				.run();
 			return json({ ok: true, waitingUntil: followUpDate });
 		}
 
 		if (request.method === "POST" && action === "unwait") {
-			await db.prepare("UPDATE customers SET waiting_until = NULL, updated_at = datetime('now') WHERE id = ?").bind(id).run();
+			await db.prepare("UPDATE customers SET waiting_until = NULL, wait_note = NULL, updated_at = datetime('now') WHERE id = ?").bind(id).run();
 			return json({ ok: true });
 		}
 
 		if (request.method === "POST" && action === "renew") {
 			const newRemaining = customer.bags_remaining + RENEW_ADD_BAGS;
 			await db
-				.prepare("UPDATE customers SET bags_remaining = ?, waiting_until = NULL, awaiting_reply = 0, updated_at = datetime('now') WHERE id = ?")
+				.prepare(
+					"UPDATE customers SET bags_remaining = ?, waiting_until = NULL, renewal_waiting_until = NULL, renewal_wait_note = NULL, awaiting_reply = 0, updated_at = datetime('now') WHERE id = ?"
+				)
 				.bind(newRemaining, id)
 				.run();
 			return json({ ok: true, bagsRemaining: newRemaining });
+		}
+
+		if (request.method === "POST" && action === "renewal-wait") {
+			const body = await request.json().catch(() => ({}));
+			let followUpDate = null;
+			if (isValidDateStr(body?.followUpDate)) {
+				followUpDate = body.followUpDate;
+			} else if (Number.isFinite(body?.days) && body.days >= 0) {
+				followUpDate = addDaysISO(todayISO(), body.days);
+			} else {
+				followUpDate = addDaysISO(todayISO(), 7);
+			}
+			const note = typeof body?.note === "string" ? body.note.trim() : "";
+			await db
+				.prepare("UPDATE customers SET renewal_waiting_until = ?, renewal_wait_note = ?, awaiting_reply = 0, updated_at = datetime('now') WHERE id = ?")
+				.bind(followUpDate, note, id)
+				.run();
+			return json({ ok: true, renewalWaitingUntil: followUpDate });
+		}
+
+		if (request.method === "POST" && action === "renewal-unwait") {
+			await db
+				.prepare("UPDATE customers SET renewal_waiting_until = NULL, renewal_wait_note = NULL, updated_at = datetime('now') WHERE id = ?")
+				.bind(id)
+				.run();
+			return json({ ok: true });
 		}
 
 		return error("פעולה לא נתמכת", 405);

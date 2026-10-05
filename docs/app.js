@@ -8,6 +8,7 @@ const el = {
 	mainBody: document.querySelector("#table-main tbody"),
 	waitingBody: document.querySelector("#table-waiting tbody"),
 	lastBagBody: document.querySelector("#table-lastbag tbody"),
+	lastBagWaitingBody: document.querySelector("#table-lastbag-waiting tbody"),
 	toast: document.getElementById("toast"),
 	modalBackdrop: document.getElementById("modal-backdrop"),
 	modal: document.getElementById("modal"),
@@ -131,7 +132,7 @@ function bagGauge(id, bagsRemaining) {
 	</span>`;
 }
 
-let allGroups = { main: [], waitingList: [], lastBag: [] };
+let allGroups = { main: [], waitingList: [], lastBag: [], lastBagWaitingList: [] };
 
 async function refresh() {
 	try {
@@ -149,14 +150,16 @@ function updateNav() {
 	const soon = allGroups.main.filter((c) => c.color === "orange").length;
 	const waitingReady = allGroups.waitingList.filter((c) => c.readyToContact).length;
 	const lastBagCount = allGroups.lastBag.length;
+	const renewalWaitingReady = allGroups.lastBagWaitingList.filter((c) => c.renewalReadyToContact).length;
 
 	const waitingBadge = document.getElementById("badge-waiting");
 	waitingBadge.textContent = String(waitingReady);
 	waitingBadge.hidden = waitingReady === 0;
 
+	const lastBagTotal = lastBagCount + renewalWaitingReady;
 	const lastBagBadge = document.getElementById("badge-lastbag");
-	lastBagBadge.textContent = String(lastBagCount);
-	lastBagBadge.hidden = lastBagCount === 0;
+	lastBagBadge.textContent = String(lastBagTotal);
+	lastBagBadge.hidden = lastBagTotal === 0;
 
 	document.getElementById("tooltip-main").textContent =
 		readyNow || soon
@@ -169,8 +172,8 @@ function updateNav() {
 			: "אין כרגע אנשים שצריך לחזור אליהם - כולם עדיין בתקופת ההמתנה שסומנה.";
 
 	document.getElementById("tooltip-lastbag").textContent =
-		lastBagCount > 0
-			? `יש ${lastBagCount} לקוחות עם שק אחרון (או בלי שקים בכלל) שכדאי להציע להם לחדש את המנוי.`
+		lastBagCount > 0 || renewalWaitingReady > 0
+			? `יש ${lastBagCount} לקוחות שאפשר להציע להם לחדש עכשיו${renewalWaitingReady > 0 ? `, ועוד ${renewalWaitingReady} שאפשר לחזור אליהם לגבי חידוש` : ""}.`
 			: "אין כרגע לקוחות שצריכים חידוש מנוי.";
 }
 
@@ -244,6 +247,7 @@ function applyFilter() {
 	renderMainPagination(main.length, totalPages);
 	renderWaiting(allGroups.waitingList.filter(match));
 	renderLastBag(allGroups.lastBag.filter(match));
+	renderLastBagWaiting(allGroups.lastBagWaitingList.filter(match));
 
 	document.querySelectorAll(".legend-chip").forEach((chip) => {
 		chip.classList.toggle("active", chip.dataset.filter === statusFilter);
@@ -293,6 +297,10 @@ function notesLine(c) {
 	return c.notes ? `<div class="notes-line">${escapeHtml(c.notes)}</div>` : "";
 }
 
+function waitNoteLine(note) {
+	return note ? `<div class="notes-line">למה ממתינים: ${escapeHtml(note)}</div>` : "";
+}
+
 function awaitingBadge(c) {
 	return c.awaitingReply ? '<span class="awaiting-badge">ממתין לתשובה</span>' : "";
 }
@@ -338,6 +346,7 @@ function renderWaiting(rows) {
 			<td class="name-cell">
 				<div class="name-line">${statusChip(c.readyToContact ? "green" : "unknown", c.readyToContact ? "מוכן לחזרה" : "בהמתנה")}${awaitingBadge(c)}<span>${escapeHtml(c.name)}</span></div>
 				${notesLine(c)}
+				${waitNoteLine(c.waitNote)}
 			</td>
 			<td data-label="טלפון">${phoneCell(c.phone)}</td>
 			<td data-label="לחזור אליו בתאריך" class="date-cell">${fmtDate(c.waitingUntil)}</td>
@@ -368,6 +377,7 @@ function renderLastBag(rows) {
 			<td class="actions-cell">
 				<button class="btn btn-whatsapp" data-action="whatsapp" data-template="renew" data-id="${c.id}">וואטסאפ</button>
 				<button class="btn btn-primary" data-action="renew" data-id="${c.id}">חודש</button>
+				<button class="btn" data-action="renewal-wait" data-id="${c.id}">לחזור אליו בעוד כמה ימים</button>
 				${awaitingButton(c)}
 			</td>
 		</tr>`
@@ -375,8 +385,37 @@ function renderLastBag(rows) {
 		.join("");
 }
 
+function renderLastBagWaiting(rows) {
+	document.querySelector("#table-lastbag-waiting").parentElement.nextElementSibling.classList.toggle("hidden", rows.length > 0);
+	el.lastBagWaitingBody.innerHTML = rows
+		.map(
+			(c) => `
+		<tr class="${c.renewalReadyToContact ? "row-green" : ""}">
+			<td class="name-cell">
+				<div class="name-line">${statusChip(c.renewalReadyToContact ? "green" : "unknown", c.renewalReadyToContact ? "מוכן לחזרה" : "בהמתנה")}${awaitingBadge(c)}<span>${escapeHtml(c.name)}</span></div>
+				${notesLine(c)}
+				${waitNoteLine(c.renewalWaitNote)}
+			</td>
+			<td data-label="טלפון">${phoneCell(c.phone)}</td>
+			<td data-label="לחזור אליו בתאריך" class="date-cell">${fmtDate(c.renewalWaitingUntil)}</td>
+			<td class="actions-cell">
+				<button class="btn btn-whatsapp" data-action="whatsapp" data-template="renew" data-id="${c.id}">וואטסאפ</button>
+				<button class="btn btn-primary" data-action="renew" data-id="${c.id}">חודש</button>
+				${awaitingButton(c)}
+				<button class="btn" data-action="renewal-unwait" data-id="${c.id}">חזרה לרשימת החידוש</button>
+			</td>
+		</tr>`
+		)
+		.join("");
+}
+
 function findCustomer(id) {
-	return allGroups.main.find((r) => r.id === id) || allGroups.waitingList.find((r) => r.id === id) || allGroups.lastBag.find((r) => r.id === id);
+	return (
+		allGroups.main.find((r) => r.id === id) ||
+		allGroups.waitingList.find((r) => r.id === id) ||
+		allGroups.lastBag.find((r) => r.id === id) ||
+		allGroups.lastBagWaitingList.find((r) => r.id === id)
+	);
 }
 
 document.getElementById("btn-add-customer").addEventListener("click", () => {
@@ -499,13 +538,22 @@ function openWithdrawModal(id) {
 	);
 }
 
-function openWaitModal(id, isExtend) {
+function openWaitModal(id, { isExtend = false, mode = "main" } = {}) {
+	const endpoint = mode === "renewal" ? "renewal-wait" : "wait";
+	const titles = {
+		main: isExtend ? "הארכת זמן המתנה" : "הלקוח עדיין לא צריך שק",
+		renewal: "לחזור אל הלקוח בעניין החידוש",
+	};
 	openModal(
 		`
-		<h3>${isExtend ? "הארכת זמן המתנה" : "הלקוח עדיין לא צריך שק"}</h3>
+		<h3>${titles[mode]}</h3>
 		<div class="field">
 			<label>לחזור אליו בעוד כמה ימים (מהיום)?</label>
 			<input type="number" id="f-days" value="7" min="0" />
+		</div>
+		<div class="field">
+			<label>הערה (לא חובה)</label>
+			<textarea id="f-note" rows="2" placeholder="למשל: ביקש/ה לחשוב על זה"></textarea>
 		</div>
 		<div class="modal-actions">
 			<button class="btn btn-primary" id="f-submit">שמירה</button>
@@ -515,10 +563,11 @@ function openWaitModal(id, isExtend) {
 			modal.querySelector("#f-cancel").addEventListener("click", closeModal);
 			modal.querySelector("#f-submit").addEventListener("click", async () => {
 				const days = Number(modal.querySelector("#f-days").value) || 0;
+				const note = modal.querySelector("#f-note").value.trim();
 				try {
-					await api(`/api/customers/${id}/wait`, { method: "POST", body: { days } });
+					await api(`/api/customers/${id}/${endpoint}`, { method: "POST", body: { days, note } });
 					closeModal();
-					showToast("הלקוח הועבר לרשימת ההמתנה");
+					showToast(mode === "renewal" ? "הלקוח הועבר לממתינים לחידוש" : "הלקוח הועבר לרשימת ההמתנה");
 					refresh();
 				} catch (err) {
 					showToast(err.message, true);
@@ -715,7 +764,18 @@ document.getElementById("app").addEventListener("click", async (e) => {
 
 	if (action === "withdraw") return openWithdrawModal(customerId);
 	if (action === "wait") return openWaitModal(customerId);
-	if (action === "extend-wait") return openWaitModal(customerId, true);
+	if (action === "extend-wait") return openWaitModal(customerId, { isExtend: true });
+	if (action === "renewal-wait") return openWaitModal(customerId, { mode: "renewal" });
+	if (action === "renewal-unwait") {
+		try {
+			await api(`/api/customers/${customerId}/renewal-unwait`, { method: "POST" });
+			showToast("הלקוח חזר לרשימת החידוש הרגילה");
+			refresh();
+		} catch (err) {
+			showToast(err.message, true);
+		}
+		return;
+	}
 	if (action === "copy-phone") {
 		copyToClipboard(btn.dataset.phone)
 			.then(() => showToast("המספר הועתק"))

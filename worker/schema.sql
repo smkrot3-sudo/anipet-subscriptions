@@ -9,6 +9,9 @@ CREATE TABLE IF NOT EXISTS customers (
   removal_reason TEXT,
   awaiting_reply INTEGER NOT NULL DEFAULT 0,
   whatsapp_contacted_at TEXT,
+  wait_note TEXT,
+  renewal_waiting_until TEXT,
+  renewal_wait_note TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
