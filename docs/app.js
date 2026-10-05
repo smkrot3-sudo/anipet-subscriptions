@@ -971,13 +971,15 @@ function renderStatsChart(dailyBags) {
 	document.getElementById("stats-chart").innerHTML = `
 		<div class="bar-chart">
 			${dailyBags
-				.map((d) => {
+				.map((d, i) => {
 					const [, m, day] = d.date.split("-");
-					const h = Math.round((d.bags / max) * 100);
+					const h = Math.max(d.bags > 0 ? 6 : 2, Math.round((d.bags / max) * 100));
+					const isLast = i === dailyBags.length - 1;
 					return `
 				<div class="bar-chart-col" title="${fmtDate(d.date)}: ${d.bags} שקים">
-					<div class="bar-chart-bar" style="height:${h}%"></div>
-					<span class="bar-chart-label">${day}/${m}</span>
+					${d.bags > 0 ? `<span class="bar-chart-value">${d.bags}</span>` : ""}
+					<div class="bar-chart-bar${isLast ? " today" : ""}" style="height:${h}%"></div>
+					<span class="bar-chart-label${isLast ? " today" : ""}">${day}/${m}</span>
 				</div>`;
 				})
 				.join("")}
@@ -997,6 +999,21 @@ const ACTIVITY_LABELS = {
 	"renewal-unwait": "חזרה לרשימת חידוש",
 };
 
+// Reuses the same green/orange/red/gray dot language as the status chips
+// elsewhere, so "what kind of thing happened" reads at a glance here too.
+const ACTIVITY_DOT = {
+	create: "green",
+	reactivate: "green",
+	withdraw: "green",
+	renew: "green",
+	unwait: "green",
+	"renewal-unwait": "green",
+	wait: "orange",
+	"renewal-wait": "orange",
+	edit: "unknown",
+	delete: "red",
+};
+
 function renderActivityLog(entries) {
 	const wrap = document.getElementById("activity-log");
 	if (entries.length === 0) {
@@ -1010,7 +1027,7 @@ function renderActivityLog(entries) {
 			return `
 		<div class="activity-row${e.undone ? " undone" : ""}">
 			<div class="activity-main">
-				<span class="activity-summary">${escapeHtml(e.customerName)} - ${escapeHtml(e.summary)}</span>
+				<span class="activity-summary"><i class="dot dot-${ACTIVITY_DOT[e.action] || "unknown"}"></i>${escapeHtml(e.customerName)} - ${escapeHtml(e.summary)}</span>
 				<span class="activity-meta">${ACTIVITY_LABELS[e.action] || e.action} · ${escapeHtml(time)}${e.undone ? " · בוטל" : ""}</span>
 			</div>
 			${e.undoable ? `<button type="button" class="btn" data-undo-log="${e.id}">בטל</button>` : ""}
