@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" />
-<link rel="stylesheet" href="styles.css?v=11" />
+<link rel="stylesheet" href="styles.css?v=12" />
 </head>
 <body>
 <header class="app-header">
@@ -33,6 +33,10 @@
 		<span>חידוש מנוי</span>
 		<span class="nav-badge" id="badge-lastbag" hidden></span>
 		<div class="nav-tooltip" id="tooltip-lastbag"></div>
+	</button>
+	<button type="button" class="nav-btn" data-view="stats">
+		<span>סטטיסטיקות</span>
+		<div class="nav-tooltip" id="tooltip-stats"></div>
 	</button>
 </nav>
 
@@ -138,6 +142,24 @@
 			<p class="empty-hint hidden">אין לקוחות שדחו את שיחת החידוש</p>
 		</section>
 	</div>
+
+	<div class="page" data-page="stats">
+		<section class="table-section">
+			<h2>פעילות החודש</h2>
+			<div class="stat-strip stat-strip--inline" id="stats-tiles"></div>
+		</section>
+
+		<section class="table-section">
+			<h2>שקים שנמסרו - 14 הימים האחרונים</h2>
+			<div id="stats-chart" class="chart-wrap"></div>
+		</section>
+
+		<section class="table-section">
+			<h2>יומן פעולות אחרונות</h2>
+			<p class="legend-note">בטול בטוח ביותר מיד אחרי הפעולה. בטול של פעולה ישנה יותר עלול לדרוס שינויים מאוחרים יותר לאותו לקוח.</p>
+			<div id="activity-log" class="activity-log"></div>
+		</section>
+	</div>
 </main>
 
 <div id="modal-backdrop" class="modal-backdrop hidden">
@@ -145,6 +167,6 @@
 </div>
 
 <script src="config.js?v=10"></script>
-<script src="app.js?v=13"></script>
+<script src="app.js?v=14"></script>
 </body>
 </html>

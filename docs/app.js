@@ -16,13 +16,28 @@ const el = {
 	sort: document.getElementById("sort-select"),
 };
 
-function showToast(message, isError = false) {
-	el.toast.textContent = message;
+function showToast(message, isError = false, undoLogId = null) {
+	el.toast.innerHTML = `<span>${escapeHtml(message)}</span>${
+		undoLogId ? `<button type="button" class="toast-undo" data-undo-id="${undoLogId}">בטל</button>` : ""
+	}`;
 	el.toast.classList.remove("hidden");
 	el.toast.classList.toggle("error", isError);
 	clearTimeout(showToast._t);
-	showToast._t = setTimeout(() => el.toast.classList.add("hidden"), 3500);
+	showToast._t = setTimeout(() => el.toast.classList.add("hidden"), undoLogId ? 7000 : 3500);
 }
+
+el.toast.addEventListener("click", async (e) => {
+	const btn = e.target.closest(".toast-undo");
+	if (!btn) return;
+	try {
+		await api(`/api/activity/${btn.dataset.undoId}/undo`, { method: "POST" });
+		el.toast.classList.add("hidden");
+		showToast("הפעולה בוטלה");
+		refresh();
+	} catch (err) {
+		showToast(err.message, true);
+	}
+});
 
 function closeModal() {
 	el.modalBackdrop.classList.add("hidden");
@@ -175,9 +190,25 @@ function updateNav() {
 		lastBagCount > 0 || renewalWaitingReady > 0
 			? `יש ${lastBagCount} לקוחות שאפשר להציע להם לחדש עכשיו${renewalWaitingReady > 0 ? `, ועוד ${renewalWaitingReady} שאפשר לחזור אליהם לגבי חידוש` : ""}.`
 			: "אין כרגע לקוחות שצריכים חידוש מנוי.";
+
+	document.getElementById("tooltip-stats").textContent = "סיכום פעילות, גרף שקים שנמסרו, ויומן פעולות עם אפשרות ביטול.";
 }
 
-const PAGES = ["main", "waiting", "lastbag"];
+function countStuckAwaiting() {
+	const all = [...allGroups.main, ...allGroups.waitingList, ...allGroups.lastBag, ...allGroups.lastBagWaitingList];
+	const seen = new Set();
+	let count = 0;
+	for (const c of all) {
+		if (c.awaitingReplyStuck && !seen.has(c.id)) {
+			seen.add(c.id);
+			count++;
+		}
+	}
+	return count;
+}
+
+const PAGES = ["main", "waiting", "lastbag", "stats"];
+let currentPage = "main";
 
 function viewFromHash() {
 	const v = (location.hash || "").replace("#", "");
@@ -186,8 +217,10 @@ function viewFromHash() {
 
 function showPage(view) {
 	if (!PAGES.includes(view)) view = "main";
+	currentPage = view;
 	document.querySelectorAll(".page").forEach((el) => el.classList.toggle("active", el.dataset.page === view));
 	document.querySelectorAll(".nav-btn").forEach((btn) => btn.classList.toggle("active", btn.dataset.view === view));
+	if (view === "stats") loadStatsPage();
 }
 
 document.querySelectorAll(".nav-btn").forEach((btn) => {
@@ -203,11 +236,13 @@ function renderStatStrip() {
 	const soon = allGroups.main.filter((c) => c.color === "orange").length;
 	const waiting = allGroups.waitingList.length;
 	const renew = allGroups.lastBag.length;
+	const stuck = countStuckAwaiting();
 	document.getElementById("stat-strip").innerHTML = `
 		<div class="stat-tile stat-green"><span class="stat-value">${readyNow}</span><span class="stat-label">אפשר לשלוח עכשיו</span></div>
 		<div class="stat-tile stat-orange"><span class="stat-value">${soon}</span><span class="stat-label">בקרוב</span></div>
 		<div class="stat-tile stat-waiting"><span class="stat-value">${waiting}</span><span class="stat-label">ממתינים</span></div>
-		<div class="stat-tile stat-renew"><span class="stat-value">${renew}</span><span class="stat-label">לחדש מנוי</span></div>`;
+		<div class="stat-tile stat-renew"><span class="stat-value">${renew}</span><span class="stat-label">לחדש מנוי</span></div>
+		<div class="stat-tile stat-stuck"><span class="stat-value">${stuck}</span><span class="stat-label">ממתינים לתשובה זמן רב</span></div>`;
 }
 
 let statusFilter = null;
@@ -302,7 +337,10 @@ function waitNoteLine(note) {
 }
 
 function awaitingBadge(c) {
-	return c.awaitingReply ? '<span class="awaiting-badge">ממתין לתשובה</span>' : "";
+	if (!c.awaitingReply) return "";
+	const days = c.awaitingReplyDays;
+	const label = days === null || days === 0 ? "ממתין לתשובה" : days === 1 ? "ממתין לתשובה (יום)" : `ממתין לתשובה (${days} ימים)`;
+	return `<span class="awaiting-badge${c.awaitingReplyStuck ? " stuck" : ""}">${label}</span>`;
 }
 
 function awaitingButton(c) {
@@ -485,9 +523,9 @@ document.getElementById("btn-add-customer").addEventListener("click", () => {
 
 async function submitNewCustomer(payload, errBox) {
 	try {
-		await api("/api/customers", { method: "POST", body: payload });
+		const res = await api("/api/customers", { method: "POST", body: payload });
 		closeModal();
-		showToast("הלקוח נוסף בהצלחה");
+		showToast(res.reactivated ? "הלקוח הופעל מחדש" : "הלקוח נוסף בהצלחה", false, res.activityLogId);
 		refresh();
 	} catch (err) {
 		if (err.removed) {
@@ -526,9 +564,9 @@ function openWithdrawModal(id) {
 				const bags = Number(modal.querySelector("#f-count").value) || 1;
 				const takenAt = modal.querySelector("#f-date").value || today;
 				try {
-					await api(`/api/customers/${id}/withdraw`, { method: "POST", body: { bags, takenAt } });
+					const res = await api(`/api/customers/${id}/withdraw`, { method: "POST", body: { bags, takenAt } });
 					closeModal();
-					showToast("המשיכה נרשמה");
+					showToast("המשיכה נרשמה", false, res.activityLogId);
 					refresh();
 				} catch (err) {
 					showToast(err.message, true);
@@ -565,9 +603,9 @@ function openWaitModal(id, { isExtend = false, mode = "main" } = {}) {
 				const days = Number(modal.querySelector("#f-days").value) || 0;
 				const note = modal.querySelector("#f-note").value.trim();
 				try {
-					await api(`/api/customers/${id}/${endpoint}`, { method: "POST", body: { days, note } });
+					const res = await api(`/api/customers/${id}/${endpoint}`, { method: "POST", body: { days, note } });
 					closeModal();
-					showToast(mode === "renewal" ? "הלקוח הועבר לממתינים לחידוש" : "הלקוח הועבר לרשימת ההמתנה");
+					showToast(mode === "renewal" ? "הלקוח הועבר לממתינים לחידוש" : "הלקוח הועבר לרשימת ההמתנה", false, res.activityLogId);
 					refresh();
 				} catch (err) {
 					showToast(err.message, true);
@@ -612,9 +650,9 @@ function openEditModal(id) {
 				const bagsRemaining = Number(modal.querySelector("#f-bags").value);
 				const notes = modal.querySelector("#f-notes").value.trim();
 				try {
-					await api(`/api/customers/${id}`, { method: "PATCH", body: { name, phone, bagsRemaining, notes } });
+					const res = await api(`/api/customers/${id}`, { method: "PATCH", body: { name, phone, bagsRemaining, notes } });
 					closeModal();
-					showToast("הפרטים עודכנו");
+					showToast("הפרטים עודכנו", false, res.activityLogId);
 					refresh();
 				} catch (err) {
 					modal.querySelector("#f-err").textContent = err.message;
@@ -768,8 +806,8 @@ document.getElementById("app").addEventListener("click", async (e) => {
 	if (action === "renewal-wait") return openWaitModal(customerId, { mode: "renewal" });
 	if (action === "renewal-unwait") {
 		try {
-			await api(`/api/customers/${customerId}/renewal-unwait`, { method: "POST" });
-			showToast("הלקוח חזר לרשימת החידוש הרגילה");
+			const res = await api(`/api/customers/${customerId}/renewal-unwait`, { method: "POST" });
+			showToast("הלקוח חזר לרשימת החידוש הרגילה", false, res.activityLogId);
 			refresh();
 		} catch (err) {
 			showToast(err.message, true);
@@ -786,8 +824,8 @@ document.getElementById("app").addEventListener("click", async (e) => {
 		const c = findCustomer(customerId);
 		if (!c) return;
 		try {
-			await api(`/api/customers/${customerId}`, { method: "PATCH", body: { awaitingReply: !c.awaitingReply } });
-			showToast(c.awaitingReply ? "הסימון בוטל" : "סומן כממתין לתשובה");
+			const res = await api(`/api/customers/${customerId}`, { method: "PATCH", body: { awaitingReply: !c.awaitingReply } });
+			showToast(c.awaitingReply ? "הסימון בוטל" : "סומן כממתין לתשובה", false, res.activityLogId);
 			refresh();
 		} catch (err) {
 			showToast(err.message, true);
@@ -803,8 +841,8 @@ document.getElementById("app").addEventListener("click", async (e) => {
 
 	if (action === "unwait") {
 		try {
-			await api(`/api/customers/${customerId}/unwait`, { method: "POST" });
-			showToast("הלקוח חזר למעקב הרגיל");
+			const res = await api(`/api/customers/${customerId}/unwait`, { method: "POST" });
+			showToast("הלקוח חזר למעקב הרגיל", false, res.activityLogId);
 			refresh();
 		} catch (err) {
 			showToast(err.message, true);
@@ -839,9 +877,9 @@ function openRenewModal(id) {
 			modal.querySelector("#f-submit").addEventListener("click", async () => {
 				const bagsToAdd = Number(modal.querySelector("#f-bags-add").value);
 				try {
-					await api(`/api/customers/${id}/renew`, { method: "POST", body: { bagsToAdd } });
+					const res = await api(`/api/customers/${id}/renew`, { method: "POST", body: { bagsToAdd } });
 					closeModal();
-					showToast("המנוי חודש");
+					showToast("המנוי חודש", false, res.activityLogId);
 					refresh();
 				} catch (err) {
 					showToast(err.message, true);
@@ -870,9 +908,9 @@ function openDeleteModal(id) {
 			modal.querySelector("#f-submit").addEventListener("click", async () => {
 				const reason = modal.querySelector("#f-reason").value.trim();
 				try {
-					await api(`/api/customers/${id}`, { method: "DELETE", body: { reason } });
+					const res = await api(`/api/customers/${id}`, { method: "DELETE", body: { reason } });
 					closeModal();
-					showToast("הלקוח הוסר");
+					showToast("הלקוח הוסר", false, res.activityLogId);
 					refresh();
 				} catch (err) {
 					showToast(err.message, true);
@@ -882,5 +920,94 @@ function openDeleteModal(id) {
 	);
 }
 
+async function loadStatsPage() {
+	try {
+		const [stats, activity] = await Promise.all([api("/api/stats"), api("/api/activity?limit=40")]);
+		renderStatsTiles(stats);
+		renderStatsChart(stats.dailyBags);
+		renderActivityLog(activity);
+	} catch (err) {
+		showToast(err.message, true);
+	}
+}
+
+function renderStatsTiles(stats) {
+	document.getElementById("stats-tiles").innerHTML = `
+		<div class="stat-tile"><span class="stat-value">${stats.totalActive}</span><span class="stat-label">לקוחות פעילים</span></div>
+		<div class="stat-tile stat-green"><span class="stat-value">${stats.bagsThisMonth}</span><span class="stat-label">שקים נמסרו החודש</span></div>
+		<div class="stat-tile"><span class="stat-value">${stats.newCustomersThisMonth}</span><span class="stat-label">לקוחות חדשים החודש</span></div>
+		<div class="stat-tile stat-renew"><span class="stat-value">${stats.renewalsThisMonth}</span><span class="stat-label">חידושים החודש</span></div>
+		<div class="stat-tile stat-stuck"><span class="stat-value">${stats.stuckAwaiting}</span><span class="stat-label">ממתינים לתשובה זמן רב</span></div>`;
+}
+
+function renderStatsChart(dailyBags) {
+	const max = Math.max(1, ...dailyBags.map((d) => d.bags));
+	document.getElementById("stats-chart").innerHTML = `
+		<div class="bar-chart">
+			${dailyBags
+				.map((d) => {
+					const [, m, day] = d.date.split("-");
+					const h = Math.round((d.bags / max) * 100);
+					return `
+				<div class="bar-chart-col" title="${fmtDate(d.date)}: ${d.bags} שקים">
+					<div class="bar-chart-bar" style="height:${h}%"></div>
+					<span class="bar-chart-label">${day}/${m}</span>
+				</div>`;
+				})
+				.join("")}
+		</div>`;
+}
+
+const ACTIVITY_LABELS = {
+	create: "לקוח חדש",
+	reactivate: "הפעלה מחדש",
+	edit: "עריכה",
+	delete: "הסרה",
+	withdraw: "משיכה",
+	wait: "המתנה",
+	unwait: "חזרה למעקב",
+	renew: "חידוש",
+	"renewal-wait": "המתנה לחידוש",
+	"renewal-unwait": "חזרה לרשימת חידוש",
+};
+
+function renderActivityLog(entries) {
+	const wrap = document.getElementById("activity-log");
+	if (entries.length === 0) {
+		wrap.innerHTML = '<p class="empty-hint">אין עדיין פעולות רשומות</p>';
+		return;
+	}
+	wrap.innerHTML = entries
+		.map((e) => {
+			const [datePart, timePart] = e.createdAt.split(" ");
+			const time = `${fmtDate(datePart)} ${(timePart || "").slice(0, 5)}`;
+			return `
+		<div class="activity-row${e.undone ? " undone" : ""}">
+			<div class="activity-main">
+				<span class="activity-summary">${escapeHtml(e.customerName)} - ${escapeHtml(e.summary)}</span>
+				<span class="activity-meta">${ACTIVITY_LABELS[e.action] || e.action} · ${escapeHtml(time)}${e.undone ? " · בוטל" : ""}</span>
+			</div>
+			${e.undoable ? `<button type="button" class="btn" data-undo-log="${e.id}">בטל</button>` : ""}
+		</div>`;
+		})
+		.join("");
+}
+
+document.getElementById("activity-log").addEventListener("click", async (e) => {
+	const btn = e.target.closest("[data-undo-log]");
+	if (!btn) return;
+	try {
+		await api(`/api/activity/${btn.dataset.undoLog}/undo`, { method: "POST" });
+		showToast("הפעולה בוטלה");
+		refresh();
+		loadStatsPage();
+	} catch (err) {
+		showToast(err.message, true);
+	}
+});
+
 refresh();
-setInterval(refresh, 60000);
+setInterval(() => {
+	refresh();
+	if (currentPage === "stats") loadStatsPage();
+}, 60000);

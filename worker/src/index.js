@@ -6,6 +6,7 @@ const ORANGE_LEAD_FRACTION = 1 / 3;
 const MIN_GREEN_LEAD_DAYS = 2;
 const MIN_ORANGE_EXTRA_DAYS = 3;
 const RENEW_ADD_BAGS = 6;
+const STUCK_AWAITING_DAYS = 3;
 
 const CORS_HEADERS = {
 	"Access-Control-Allow-Origin": "*",
@@ -43,6 +44,28 @@ function addDaysISO(dateStr, days) {
 
 function isValidDateStr(s) {
 	return typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(new Date(s + "T00:00:00Z").getTime());
+}
+
+// Records a before-mutation snapshot of a customer row so the action can later be
+// undone generically: restore every column from `before_state`, and delete any
+// withdrawal rows the action created. `hardDelete` marks actions (just "create")
+// where there is no prior row to restore to - undo means deleting the customer.
+async function logActivity(db, customerBefore, action, summary, { createdWithdrawalIds = null, hardDelete = false } = {}) {
+	const result = await db
+		.prepare(
+			"INSERT INTO activity_log (customer_id, customer_name, action, summary, before_state, created_withdrawal_ids, hard_delete) VALUES (?, ?, ?, ?, ?, ?, ?)"
+		)
+		.bind(
+			customerBefore.id,
+			customerBefore.name,
+			action,
+			summary,
+			hardDelete ? null : JSON.stringify(customerBefore),
+			createdWithdrawalIds ? JSON.stringify(createdWithdrawalIds) : null,
+			hardDelete ? 1 : 0
+		)
+		.run();
+	return result.meta.last_row_id;
 }
 
 function computeEstimate(history) {
@@ -86,6 +109,7 @@ async function buildCustomerViews(db) {
 		const { avgIntervalDays, nextEstimate, lastWithdrawal } = computeEstimate(history);
 		const waiting = !!c.waiting_until;
 		const renewalWaiting = !!c.renewal_waiting_until;
+		const awaitingReplyDays = c.awaiting_reply_at ? daysBetween(c.awaiting_reply_at.slice(0, 10), today) : null;
 		return {
 			id: c.id,
 			name: c.name,
@@ -105,6 +129,8 @@ async function buildCustomerViews(db) {
 			isWaiting: waiting,
 			isRenewalWaiting: renewalWaiting,
 			awaitingReply: !!c.awaiting_reply,
+			awaitingReplyDays,
+			awaitingReplyStuck: awaitingReplyDays !== null && awaitingReplyDays >= STUCK_AWAITING_DAYS,
 			whatsappContactedAt: c.whatsapp_contacted_at,
 			withdrawals: history.map((h) => ({ id: h.id, takenAt: h.taken_at, bags: h.bags })),
 		};
@@ -158,6 +184,103 @@ async function handleRequest(request, env) {
 		return json(groups);
 	}
 
+	// GET /api/activity -> recent activity log, newest first
+	if (request.method === "GET" && pathname === "/api/activity") {
+		const limit = Math.min(200, Math.max(1, Number(url.searchParams.get("limit")) || 40));
+		const { results } = await db.prepare("SELECT * FROM activity_log ORDER BY id DESC LIMIT ?").bind(limit).all();
+		return json(
+			results.map((r) => ({
+				id: r.id,
+				customerId: r.customer_id,
+				customerName: r.customer_name,
+				action: r.action,
+				summary: r.summary,
+				undone: !!r.undone,
+				undoable: !r.undone,
+				createdAt: r.created_at,
+			}))
+		);
+	}
+
+	// POST /api/activity/:id/undo -> reverse a logged action
+	const undoMatch = pathname.match(/^\/api\/activity\/(\d+)\/undo$/);
+	if (undoMatch && request.method === "POST") {
+		const logId = Number(undoMatch[1]);
+		const log = await db.prepare("SELECT * FROM activity_log WHERE id = ?").bind(logId).first();
+		if (!log) return error("פעולה לא נמצאה", 404);
+		if (log.undone) return error("הפעולה כבר בוטלה", 409);
+
+		if (log.created_withdrawal_ids) {
+			const ids = JSON.parse(log.created_withdrawal_ids);
+			for (const wid of ids) {
+				await db.prepare("DELETE FROM withdrawals WHERE id = ?").bind(wid).run();
+			}
+		}
+
+		if (log.hard_delete) {
+			await db.prepare("DELETE FROM withdrawals WHERE customer_id = ?").bind(log.customer_id).run();
+			await db.prepare("DELETE FROM customers WHERE id = ?").bind(log.customer_id).run();
+		} else if (log.before_state) {
+			const snapshot = JSON.parse(log.before_state);
+			const cols = Object.keys(snapshot).filter((k) => k !== "id");
+			const setClause = cols.map((c) => `${c} = ?`).join(", ");
+			await db
+				.prepare(`UPDATE customers SET ${setClause} WHERE id = ?`)
+				.bind(...cols.map((c) => snapshot[c]), log.customer_id)
+				.run();
+		}
+
+		await db.prepare("UPDATE activity_log SET undone = 1 WHERE id = ?").bind(logId).run();
+		return json({ ok: true });
+	}
+
+	// GET /api/stats -> dashboard numbers + a daily bags chart
+	if (request.method === "GET" && pathname === "/api/stats") {
+		const today = todayISO();
+		const monthStart = today.slice(0, 7) + "-01";
+		const fourteenDaysAgo = addDaysISO(today, -13);
+
+		const totalActive = await db.prepare("SELECT COUNT(*) AS n FROM customers WHERE removed_at IS NULL").first();
+		const bagsThisMonth = await db
+			.prepare(
+				"SELECT COALESCE(SUM(w.bags), 0) AS n FROM withdrawals w JOIN customers c ON c.id = w.customer_id WHERE w.taken_at >= ? AND c.removed_at IS NULL"
+			)
+			.bind(monthStart)
+			.first();
+		const newCustomersThisMonth = await db
+			.prepare("SELECT COUNT(*) AS n FROM customers WHERE created_at >= ?")
+			.bind(monthStart)
+			.first();
+		const renewalsThisMonth = await db
+			.prepare("SELECT COUNT(*) AS n FROM activity_log WHERE action = 'renew' AND undone = 0 AND created_at >= ?")
+			.bind(monthStart)
+			.first();
+		const { results: dailyRows } = await db
+			.prepare(
+				"SELECT w.taken_at AS day, COALESCE(SUM(w.bags), 0) AS bags FROM withdrawals w JOIN customers c ON c.id = w.customer_id WHERE w.taken_at >= ? AND c.removed_at IS NULL GROUP BY w.taken_at"
+			)
+			.bind(fourteenDaysAgo)
+			.all();
+		const dailyMap = new Map(dailyRows.map((r) => [r.day, r.bags]));
+		const dailyBags = [];
+		for (let i = 13; i >= 0; i--) {
+			const day = addDaysISO(today, -i);
+			dailyBags.push({ date: day, bags: dailyMap.get(day) || 0 });
+		}
+
+		const views = await buildCustomerViews(db);
+		const stuckAwaiting = views.filter((v) => v.awaitingReplyStuck).length;
+
+		return json({
+			totalActive: totalActive.n,
+			bagsThisMonth: bagsThisMonth.n,
+			newCustomersThisMonth: newCustomersThisMonth.n,
+			renewalsThisMonth: renewalsThisMonth.n,
+			stuckAwaiting,
+			dailyBags,
+		});
+	}
+
 	// POST /api/customers -> create new customer (or reactivate a previously removed one)
 	if (request.method === "POST" && pathname === "/api/customers") {
 		const body = await request.json().catch(() => null);
@@ -200,10 +323,13 @@ async function handleRequest(request, env) {
 				)
 				.bind(name, bagsRemaining, notes, existing.id)
 				.run();
+			const insertedIds = [];
 			for (const takenAt of validDates) {
-				await db.prepare("INSERT INTO withdrawals (customer_id, taken_at, bags) VALUES (?, ?, 1)").bind(existing.id, takenAt).run();
+				const r = await db.prepare("INSERT INTO withdrawals (customer_id, taken_at, bags) VALUES (?, ?, 1)").bind(existing.id, takenAt).run();
+				insertedIds.push(r.meta.last_row_id);
 			}
-			return json({ id: existing.id, reactivated: true }, 200);
+			const activityLogId = await logActivity(db, existing, "reactivate", `הלקוח/ה הופעל/ה מחדש (${name})`, { createdWithdrawalIds: insertedIds });
+			return json({ id: existing.id, reactivated: true, activityLogId }, 200);
 		}
 
 		const result = await db
@@ -212,11 +338,18 @@ async function handleRequest(request, env) {
 			.run();
 		const customerId = result.meta.last_row_id;
 
+		const insertedIds = [];
 		for (const takenAt of validDates) {
-			await db.prepare("INSERT INTO withdrawals (customer_id, taken_at, bags) VALUES (?, ?, 1)").bind(customerId, takenAt).run();
+			const r = await db.prepare("INSERT INTO withdrawals (customer_id, taken_at, bags) VALUES (?, ?, 1)").bind(customerId, takenAt).run();
+			insertedIds.push(r.meta.last_row_id);
 		}
 
-		return json({ id: customerId }, 201);
+		const activityLogId = await logActivity(db, { id: customerId, name }, "create", `לקוח/ה חדש/ה נוסף/ה: ${name}`, {
+			createdWithdrawalIds: insertedIds,
+			hardDelete: true,
+		});
+
+		return json({ id: customerId, activityLogId }, 201);
 	}
 
 	const idMatch = pathname.match(/^\/api\/customers\/(\d+)(?:\/(withdraw|wait|renew|unwait|renewal-wait|renewal-unwait))?$/);
@@ -232,6 +365,7 @@ async function handleRequest(request, env) {
 			if (!body) return error("גוף בקשה לא תקין");
 			const updates = [];
 			const values = [];
+			let summary = "פרטי הלקוח עודכנו";
 			if (typeof body.name === "string" && body.name.trim()) {
 				updates.push("name = ?");
 				values.push(body.name.trim());
@@ -254,25 +388,31 @@ async function handleRequest(request, env) {
 			if (typeof body.awaitingReply === "boolean") {
 				updates.push("awaiting_reply = ?");
 				values.push(body.awaitingReply ? 1 : 0);
+				updates.push("awaiting_reply_at = ?");
+				values.push(body.awaitingReply ? todayISO() : null);
+				summary = body.awaitingReply ? "סומן כממתין לתשובה" : "סימון ממתין לתשובה בוטל";
 			}
 			if (body.markWhatsappContacted === true) {
 				updates.push("whatsapp_contacted_at = COALESCE(whatsapp_contacted_at, datetime('now'))");
+				summary = "נשלחה הודעת וואטסאפ";
 			}
 			if (updates.length === 0) return error("אין מה לעדכן");
 			updates.push("updated_at = datetime('now')");
 			values.push(id);
+			const activityLogId = await logActivity(db, customer, "edit", summary);
 			await db.prepare(`UPDATE customers SET ${updates.join(", ")} WHERE id = ?`).bind(...values).run();
-			return json({ ok: true });
+			return json({ ok: true, activityLogId });
 		}
 
 		if (request.method === "DELETE" && !action) {
 			const body = await request.json().catch(() => ({}));
 			const reason = typeof body?.reason === "string" ? body.reason.trim() : "";
+			const activityLogId = await logActivity(db, customer, "delete", `הלקוח/ה הוסר/ה מהמאגר${reason ? ` (${reason})` : ""}`);
 			await db
 				.prepare("UPDATE customers SET removed_at = datetime('now'), removal_reason = ?, waiting_until = NULL, updated_at = datetime('now') WHERE id = ?")
 				.bind(reason, id)
 				.run();
-			return json({ ok: true });
+			return json({ ok: true, activityLogId });
 		}
 
 		if (request.method === "POST" && action === "withdraw") {
@@ -280,13 +420,16 @@ async function handleRequest(request, env) {
 			const takenAt = isValidDateStr(body?.takenAt) ? body.takenAt : todayISO();
 			const bags = Number.isFinite(body?.bags) && body.bags > 0 ? Math.floor(body.bags) : 1;
 
-			await db.prepare("INSERT INTO withdrawals (customer_id, taken_at, bags) VALUES (?, ?, ?)").bind(id, takenAt, bags).run();
+			const wResult = await db.prepare("INSERT INTO withdrawals (customer_id, taken_at, bags) VALUES (?, ?, ?)").bind(id, takenAt, bags).run();
+			const activityLogId = await logActivity(db, customer, "withdraw", `נרשמה משיכה של ${bags} ${bags === 1 ? "שק" : "שקים"}`, {
+				createdWithdrawalIds: [wResult.meta.last_row_id],
+			});
 			const newRemaining = Math.max(0, customer.bags_remaining - bags);
 			await db
-				.prepare("UPDATE customers SET bags_remaining = ?, waiting_until = NULL, awaiting_reply = 0, updated_at = datetime('now') WHERE id = ?")
+				.prepare("UPDATE customers SET bags_remaining = ?, waiting_until = NULL, awaiting_reply = 0, awaiting_reply_at = NULL, updated_at = datetime('now') WHERE id = ?")
 				.bind(newRemaining, id)
 				.run();
-			return json({ ok: true, bagsRemaining: newRemaining });
+			return json({ ok: true, bagsRemaining: newRemaining, activityLogId });
 		}
 
 		if (request.method === "POST" && action === "wait") {
@@ -300,29 +443,32 @@ async function handleRequest(request, env) {
 				followUpDate = addDaysISO(todayISO(), 7);
 			}
 			const note = typeof body?.note === "string" ? body.note.trim() : "";
+			const activityLogId = await logActivity(db, customer, "wait", `הועבר/ה להמתנה עד ${followUpDate}`);
 			await db
-				.prepare("UPDATE customers SET waiting_until = ?, wait_note = ?, awaiting_reply = 0, updated_at = datetime('now') WHERE id = ?")
+				.prepare("UPDATE customers SET waiting_until = ?, wait_note = ?, awaiting_reply = 0, awaiting_reply_at = NULL, updated_at = datetime('now') WHERE id = ?")
 				.bind(followUpDate, note, id)
 				.run();
-			return json({ ok: true, waitingUntil: followUpDate });
+			return json({ ok: true, waitingUntil: followUpDate, activityLogId });
 		}
 
 		if (request.method === "POST" && action === "unwait") {
+			const activityLogId = await logActivity(db, customer, "unwait", "הוחזר/ה למעקב הרגיל");
 			await db.prepare("UPDATE customers SET waiting_until = NULL, wait_note = NULL, updated_at = datetime('now') WHERE id = ?").bind(id).run();
-			return json({ ok: true });
+			return json({ ok: true, activityLogId });
 		}
 
 		if (request.method === "POST" && action === "renew") {
 			const body = await request.json().catch(() => ({}));
 			const bagsToAdd = Number.isFinite(body?.bagsToAdd) && body.bagsToAdd >= 0 ? Math.floor(body.bagsToAdd) : RENEW_ADD_BAGS;
 			const newRemaining = customer.bags_remaining + bagsToAdd;
+			const activityLogId = await logActivity(db, customer, "renew", `המנוי חודש (+${bagsToAdd} שקים)`);
 			await db
 				.prepare(
-					"UPDATE customers SET bags_remaining = ?, waiting_until = NULL, renewal_waiting_until = NULL, renewal_wait_note = NULL, awaiting_reply = 0, updated_at = datetime('now') WHERE id = ?"
+					"UPDATE customers SET bags_remaining = ?, waiting_until = NULL, renewal_waiting_until = NULL, renewal_wait_note = NULL, awaiting_reply = 0, awaiting_reply_at = NULL, updated_at = datetime('now') WHERE id = ?"
 				)
 				.bind(newRemaining, id)
 				.run();
-			return json({ ok: true, bagsRemaining: newRemaining });
+			return json({ ok: true, bagsRemaining: newRemaining, activityLogId });
 		}
 
 		if (request.method === "POST" && action === "renewal-wait") {
@@ -336,19 +482,23 @@ async function handleRequest(request, env) {
 				followUpDate = addDaysISO(todayISO(), 7);
 			}
 			const note = typeof body?.note === "string" ? body.note.trim() : "";
+			const activityLogId = await logActivity(db, customer, "renewal-wait", `הועבר/ה לממתינים לחידוש עד ${followUpDate}`);
 			await db
-				.prepare("UPDATE customers SET renewal_waiting_until = ?, renewal_wait_note = ?, awaiting_reply = 0, updated_at = datetime('now') WHERE id = ?")
+				.prepare(
+					"UPDATE customers SET renewal_waiting_until = ?, renewal_wait_note = ?, awaiting_reply = 0, awaiting_reply_at = NULL, updated_at = datetime('now') WHERE id = ?"
+				)
 				.bind(followUpDate, note, id)
 				.run();
-			return json({ ok: true, renewalWaitingUntil: followUpDate });
+			return json({ ok: true, renewalWaitingUntil: followUpDate, activityLogId });
 		}
 
 		if (request.method === "POST" && action === "renewal-unwait") {
+			const activityLogId = await logActivity(db, customer, "renewal-unwait", "הוחזר/ה לרשימת החידוש הרגילה");
 			await db
 				.prepare("UPDATE customers SET renewal_waiting_until = NULL, renewal_wait_note = NULL, updated_at = datetime('now') WHERE id = ?")
 				.bind(id)
 				.run();
-			return json({ ok: true });
+			return json({ ok: true, activityLogId });
 		}
 
 		return error("פעולה לא נתמכת", 405);
