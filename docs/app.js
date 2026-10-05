@@ -812,19 +812,44 @@ document.getElementById("app").addEventListener("click", async (e) => {
 		return;
 	}
 
-	if (action === "renew") {
-		try {
-			await api(`/api/customers/${customerId}/renew`, { method: "POST" });
-			showToast("המנוי חודש");
-			refresh();
-		} catch (err) {
-			showToast(err.message, true);
-		}
-		return;
-	}
+	if (action === "renew") return openRenewModal(customerId);
 
 	if (action === "delete") return openDeleteModal(customerId);
 });
+
+const RENEW_DEFAULT_BAGS = 6;
+
+function openRenewModal(id) {
+	const c = findCustomer(id);
+	if (!c) return;
+	openModal(
+		`
+		<h3>חידוש מנוי ל${escapeHtml(c.name)}</h3>
+		<p class="modal-note">נשארו לו/ה כרגע ${c.bagsRemaining} שקים במנוי.</p>
+		<div class="field">
+			<label>כמה שקים נוספים להוסיף למנוי?</label>
+			<input type="number" id="f-bags-add" value="${RENEW_DEFAULT_BAGS}" min="0" />
+		</div>
+		<div class="modal-actions">
+			<button class="btn btn-primary" id="f-submit">אישור חידוש</button>
+			<button class="btn" id="f-cancel">ביטול</button>
+		</div>`,
+		(modal) => {
+			modal.querySelector("#f-cancel").addEventListener("click", closeModal);
+			modal.querySelector("#f-submit").addEventListener("click", async () => {
+				const bagsToAdd = Number(modal.querySelector("#f-bags-add").value);
+				try {
+					await api(`/api/customers/${id}/renew`, { method: "POST", body: { bagsToAdd } });
+					closeModal();
+					showToast("המנוי חודש");
+					refresh();
+				} catch (err) {
+					showToast(err.message, true);
+				}
+			});
+		}
+	);
+}
 
 function openDeleteModal(id) {
 	const c = findCustomer(id);

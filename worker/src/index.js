@@ -313,7 +313,9 @@ async function handleRequest(request, env) {
 		}
 
 		if (request.method === "POST" && action === "renew") {
-			const newRemaining = customer.bags_remaining + RENEW_ADD_BAGS;
+			const body = await request.json().catch(() => ({}));
+			const bagsToAdd = Number.isFinite(body?.bagsToAdd) && body.bagsToAdd >= 0 ? Math.floor(body.bagsToAdd) : RENEW_ADD_BAGS;
+			const newRemaining = customer.bags_remaining + bagsToAdd;
 			await db
 				.prepare(
 					"UPDATE customers SET bags_remaining = ?, waiting_until = NULL, renewal_waiting_until = NULL, renewal_wait_note = NULL, awaiting_reply = 0, updated_at = datetime('now') WHERE id = ?"
