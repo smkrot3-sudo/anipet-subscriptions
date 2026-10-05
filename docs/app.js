@@ -343,8 +343,24 @@ function awaitingBadge(c) {
 	return `<span class="awaiting-badge${c.awaitingReplyStuck ? " stuck" : ""}">${label}</span>`;
 }
 
-function awaitingButton(c) {
-	return `<button class="btn" data-action="toggle-awaiting" data-id="${c.id}">${c.awaitingReply ? "בטל סימון תשובה" : "סימון: ממתין לתשובה"}</button>`;
+function awaitingMenuItem(c) {
+	return `<button type="button" class="menu-item" data-action="toggle-awaiting" data-id="${c.id}">${
+		c.awaitingReply ? "בטל סימון ממתין לתשובה" : "סימון: ממתין לתשובה"
+	}</button>`;
+}
+
+// A row's secondary actions (everything beyond WhatsApp + the one primary action)
+// live behind a kebab menu so the row reads as "status + one thing to do", not a
+// wall of equal-weight buttons.
+function overflowMenu(items) {
+	return `<div class="row-menu">
+		<button type="button" class="menu-trigger" data-action="toggle-menu" aria-haspopup="true" aria-label="עוד פעולות">⋮</button>
+		<div class="dropdown-menu">${items.join("")}</div>
+	</div>`;
+}
+
+function menuItem(action, id, label, danger) {
+	return `<button type="button" class="menu-item${danger ? " danger" : ""}" data-action="${action}" data-id="${id}">${label}</button>`;
 }
 
 function renderMain(rows) {
@@ -364,11 +380,13 @@ function renderMain(rows) {
 			<td class="actions-cell">
 				<button class="btn btn-whatsapp" data-action="whatsapp" data-template="reminder" data-id="${c.id}">וואטסאפ</button>
 				<button class="btn" data-action="withdraw" data-id="${c.id}">סימון משיכה</button>
-				<button class="btn" data-action="wait" data-id="${c.id}">עדיין לא צריך</button>
-				${awaitingButton(c)}
-				<button class="btn" data-action="history" data-id="${c.id}">היסטוריה</button>
-				<button class="btn" data-action="edit" data-id="${c.id}">עריכה</button>
-				<button class="btn btn-danger" data-action="delete" data-id="${c.id}">מחיקה</button>
+				${overflowMenu([
+					menuItem("wait", c.id, "עדיין לא צריך"),
+					awaitingMenuItem(c),
+					menuItem("history", c.id, "היסטוריה"),
+					menuItem("edit", c.id, "עריכה"),
+					menuItem("delete", c.id, "מחיקה", true),
+				])}
 			</td>
 		</tr>`
 		)
@@ -391,9 +409,11 @@ function renderWaiting(rows) {
 			<td class="actions-cell">
 				<button class="btn btn-whatsapp" data-action="whatsapp" data-template="waiting" data-id="${c.id}">וואטסאפ</button>
 				<button class="btn" data-action="withdraw" data-id="${c.id}">משך שק</button>
-				<button class="btn" data-action="extend-wait" data-id="${c.id}">הארכת המתנה</button>
-				${awaitingButton(c)}
-				<button class="btn" data-action="unwait" data-id="${c.id}">חזרה למעקב רגיל</button>
+				${overflowMenu([
+					menuItem("extend-wait", c.id, "הארכת המתנה"),
+					awaitingMenuItem(c),
+					menuItem("unwait", c.id, "חזרה למעקב רגיל"),
+				])}
 			</td>
 		</tr>`
 		)
@@ -415,8 +435,7 @@ function renderLastBag(rows) {
 			<td class="actions-cell">
 				<button class="btn btn-whatsapp" data-action="whatsapp" data-template="renew" data-id="${c.id}">וואטסאפ</button>
 				<button class="btn btn-primary" data-action="renew" data-id="${c.id}">חודש</button>
-				<button class="btn" data-action="renewal-wait" data-id="${c.id}">לחזור אליו בעוד כמה ימים</button>
-				${awaitingButton(c)}
+				${overflowMenu([menuItem("renewal-wait", c.id, "לחזור אליו בעוד כמה ימים"), awaitingMenuItem(c)])}
 			</td>
 		</tr>`
 		)
@@ -439,8 +458,7 @@ function renderLastBagWaiting(rows) {
 			<td class="actions-cell">
 				<button class="btn btn-whatsapp" data-action="whatsapp" data-template="renew" data-id="${c.id}">וואטסאפ</button>
 				<button class="btn btn-primary" data-action="renew" data-id="${c.id}">חודש</button>
-				${awaitingButton(c)}
-				<button class="btn" data-action="renewal-unwait" data-id="${c.id}">חזרה לרשימת החידוש</button>
+				${overflowMenu([awaitingMenuItem(c), menuItem("renewal-unwait", c.id, "חזרה לרשימת החידוש")])}
 			</td>
 		</tr>`
 		)
@@ -800,6 +818,14 @@ document.getElementById("app").addEventListener("click", async (e) => {
 	const { action, id, template } = btn.dataset;
 	const customerId = Number(id);
 
+	if (action === "toggle-menu") {
+		const menu = btn.closest(".row-menu").querySelector(".dropdown-menu");
+		const wasOpen = menu.classList.contains("open");
+		document.querySelectorAll(".dropdown-menu.open").forEach((m) => m.classList.remove("open"));
+		if (!wasOpen) menu.classList.add("open");
+		return;
+	}
+
 	if (action === "withdraw") return openWithdrawModal(customerId);
 	if (action === "wait") return openWaitModal(customerId);
 	if (action === "extend-wait") return openWaitModal(customerId, { isExtend: true });
@@ -1003,6 +1029,17 @@ document.getElementById("activity-log").addEventListener("click", async (e) => {
 		loadStatsPage();
 	} catch (err) {
 		showToast(err.message, true);
+	}
+});
+
+document.addEventListener("click", (e) => {
+	if (!e.target.closest(".row-menu")) {
+		document.querySelectorAll(".dropdown-menu.open").forEach((m) => m.classList.remove("open"));
+	}
+});
+document.addEventListener("keydown", (e) => {
+	if (e.key === "Escape") {
+		document.querySelectorAll(".dropdown-menu.open").forEach((m) => m.classList.remove("open"));
 	}
 });
 
