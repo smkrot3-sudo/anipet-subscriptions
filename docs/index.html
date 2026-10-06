@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" />
-<link rel="stylesheet" href="styles.css?v=19" />
+<link rel="stylesheet" href="styles.css?v=20" />
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -24,9 +24,13 @@
 </svg>
 
 <header class="app-header">
+	<div class="app-header-side"></div>
+
 	<div class="app-header-brand">
 		<span class="brand-mark" aria-hidden="true">
-			<svg viewBox="0 0 64 64" width="52" height="52">
+			<span class="brand-mark-sparkle brand-mark-sparkle--1">✨</span>
+			<span class="brand-mark-sparkle brand-mark-sparkle--2">✨</span>
+			<svg viewBox="0 0 64 64" width="60" height="60">
 				<circle cx="23" cy="37" r="15" fill="#d9a066" />
 				<ellipse cx="11" cy="24" rx="6" ry="9" fill="#c0834a" transform="rotate(-25 11 24)" />
 				<ellipse cx="35" cy="24" rx="6" ry="9" fill="#c0834a" transform="rotate(25 35 24)" />
@@ -49,7 +53,10 @@
 			<h1>מנויי שקי מזון</h1>
 		</div>
 	</div>
-	<button id="btn-add-customer" class="btn btn-primary">+ 🐾 צירוף לקוח חדש</button>
+
+	<div class="app-header-side app-header-side--end">
+		<button id="btn-add-customer" class="btn btn-primary">+ 🐾 צירוף לקוח חדש</button>
+	</div>
 </header>
 
 <nav class="page-nav" id="page-nav">
