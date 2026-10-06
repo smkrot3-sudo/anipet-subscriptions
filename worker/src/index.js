@@ -200,6 +200,16 @@ async function handleRequest(request, env) {
 	if (request.method === "GET" && pathname === "/api/customers") {
 		const views = await buildCustomerViews(db);
 		const groups = splitGroups(views, todayISO());
+		const { results: removedRows } = await db
+			.prepare("SELECT id, name, phone, removal_reason, removed_at FROM customers WHERE removed_at IS NOT NULL ORDER BY removed_at DESC")
+			.all();
+		groups.removed = removedRows.map((r) => ({
+			id: r.id,
+			name: r.name,
+			phone: r.phone,
+			removalReason: r.removal_reason || "",
+			removedAt: r.removed_at,
+		}));
 		return json(groups);
 	}
 
@@ -371,7 +381,7 @@ async function handleRequest(request, env) {
 		return json({ id: customerId, activityLogId }, 201);
 	}
 
-	const idMatch = pathname.match(/^\/api\/customers\/(\d+)(?:\/(withdraw|wait|renew|unwait|renewal-wait|renewal-unwait))?$/);
+	const idMatch = pathname.match(/^\/api\/customers\/(\d+)(?:\/(withdraw|wait|renew|unwait|renewal-wait|renewal-unwait|restore))?$/);
 	if (idMatch) {
 		const id = Number(idMatch[1]);
 		const action = idMatch[2];
@@ -430,6 +440,18 @@ async function handleRequest(request, env) {
 			await db
 				.prepare("UPDATE customers SET removed_at = datetime('now'), removal_reason = ?, waiting_until = NULL, updated_at = datetime('now') WHERE id = ?")
 				.bind(reason, id)
+				.run();
+			return json({ ok: true, activityLogId });
+		}
+
+		if (request.method === "POST" && action === "restore") {
+			if (!customer.removed_at) {
+				return error("הלקוח/ה לא מוסתר/ת", 400);
+			}
+			const activityLogId = await logActivity(db, customer, "restore", "הלקוח/ה הוצג/ה מחדש לאחר הסתרה");
+			await db
+				.prepare("UPDATE customers SET removed_at = NULL, removal_reason = NULL, updated_at = datetime('now') WHERE id = ?")
+				.bind(id)
 				.run();
 			return json({ ok: true, activityLogId });
 		}

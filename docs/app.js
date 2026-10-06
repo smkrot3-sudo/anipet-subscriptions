@@ -14,6 +14,7 @@ const el = {
 	modal: document.getElementById("modal"),
 	search: document.getElementById("search-box"),
 	sort: document.getElementById("sort-select"),
+	removedResults: document.getElementById("removed-results"),
 };
 
 function showToast(message, isError = false, undoLogId = null) {
@@ -147,7 +148,7 @@ function bagGauge(id, bagsRemaining) {
 	</span>`;
 }
 
-let allGroups = { main: [], waitingList: [], lastBag: [], lastBagWaitingList: [] };
+let allGroups = { main: [], waitingList: [], lastBag: [], lastBagWaitingList: [], removed: [] };
 
 async function refresh() {
 	try {
@@ -283,6 +284,7 @@ function applyFilter() {
 	renderWaiting(allGroups.waitingList.filter(match));
 	renderLastBag(allGroups.lastBag.filter(match));
 	renderLastBagWaiting(allGroups.lastBagWaitingList.filter(match));
+	renderRemovedResults(q ? allGroups.removed.filter(match) : []);
 
 	document.querySelectorAll(".legend-chip").forEach((chip) => {
 		chip.classList.toggle("active", chip.dataset.filter === statusFilter);
@@ -473,12 +475,36 @@ function renderLastBagWaiting(rows) {
 		.join("");
 }
 
+function renderRemovedResults(rows) {
+	if (!el.removedResults) return;
+	if (rows.length === 0) {
+		el.removedResults.classList.add("hidden");
+		el.removedResults.innerHTML = "";
+		return;
+	}
+	el.removedResults.classList.remove("hidden");
+	el.removedResults.innerHTML = `
+		<h3 class="removed-results-title">נמצאו לקוחות מוסתרים</h3>
+		${rows
+			.map(
+				(c) => `
+			<div class="removed-row">
+				<div class="name-line"><span class="status-chip status-chip--removed">מוסתר</span><span>${escapeHtml(c.name)}</span></div>
+				<div class="removed-meta">${phoneCell(c.phone)}<span class="removed-date">הוסר/ה בתאריך ${fmtDate((c.removedAt || "").slice(0, 10))}</span></div>
+				<div class="removed-reason">${c.removalReason ? `סיבת ההסרה: ${escapeHtml(c.removalReason)}` : "לא נרשמה סיבת הסרה"}</div>
+				<button type="button" class="btn btn-primary" data-action="restore" data-id="${c.id}">הצג מחדש</button>
+			</div>`
+			)
+			.join("")}`;
+}
+
 function findCustomer(id) {
 	return (
 		allGroups.main.find((r) => r.id === id) ||
 		allGroups.waitingList.find((r) => r.id === id) ||
 		allGroups.lastBag.find((r) => r.id === id) ||
-		allGroups.lastBagWaitingList.find((r) => r.id === id)
+		allGroups.lastBagWaitingList.find((r) => r.id === id) ||
+		allGroups.removed.find((r) => r.id === id)
 	);
 }
 
@@ -887,6 +913,17 @@ document.getElementById("app").addEventListener("click", async (e) => {
 	if (action === "renew") return openRenewModal(customerId);
 
 	if (action === "delete") return openDeleteModal(customerId);
+
+	if (action === "restore") {
+		try {
+			const res = await api(`/api/customers/${customerId}/restore`, { method: "POST" });
+			showToast("הלקוח הוצג מחדש", false, res.activityLogId);
+			refresh();
+		} catch (err) {
+			showToast(err.message, true);
+		}
+		return;
+	}
 });
 
 const RENEW_DEFAULT_BAGS = 6;
@@ -999,6 +1036,7 @@ const ACTIVITY_LABELS = {
 	reactivate: "הפעלה מחדש",
 	edit: "עריכה",
 	delete: "הסרה",
+	restore: "הצגה מחדש",
 	withdraw: "משיכה",
 	wait: "המתנה",
 	unwait: "חזרה למעקב",
@@ -1016,6 +1054,7 @@ const ACTIVITY_DOT = {
 	renew: "green",
 	unwait: "green",
 	"renewal-unwait": "green",
+	restore: "green",
 	wait: "orange",
 	"renewal-wait": "orange",
 	edit: "unknown",
