@@ -365,11 +365,10 @@ function menuItem(action, id, label, danger) {
 
 // The color is proportional to each customer's OWN cadence (a 4-month buyer
 // gets a much wider green window than a 2-week buyer), so two similar-looking
-// dates can land on different colors. Surfacing the cadence itself is what
-// makes that legible instead of looking arbitrary.
-function avgIntervalLine(c) {
-	if (c.avgIntervalDays === null || c.avgIntervalDays === undefined) return "";
-	return `<div class="interval-line">קונה כל כ-${Math.round(c.avgIntervalDays)} ימים</div>`;
+// dates can land on different colors. Surfacing the cadence itself (on hover,
+// not permanently) is what makes that legible instead of looking arbitrary.
+function intervalTitle(c) {
+	return c.avgIntervalDays === null || c.avgIntervalDays === undefined ? "" : `קונה כל כ-${Math.round(c.avgIntervalDays)} ימים בממוצע`;
 }
 
 function renderMain(rows) {
@@ -385,7 +384,7 @@ function renderMain(rows) {
 			<td data-label="טלפון">${phoneCell(c.phone)}</td>
 			<td data-label="שקים שנשארו">${bagGauge(c.id, c.bagsRemaining)}</td>
 			<td data-label="משיכה אחרונה" class="date-cell">${fmtDate(c.lastWithdrawal)}</td>
-			<td data-label="תאריך משוער הבא" class="date-cell">${fmtDate(c.nextEstimate)}${avgIntervalLine(c)}</td>
+			<td data-label="תאריך משוער הבא" class="date-cell${c.avgIntervalDays != null ? " has-interval" : ""}" title="${escapeHtml(intervalTitle(c))}">${fmtDate(c.nextEstimate)}</td>
 			<td class="actions-cell">
 				<button class="btn btn-whatsapp" data-action="whatsapp" data-template="reminder" data-id="${c.id}">וואטסאפ</button>
 				<button class="btn" data-action="withdraw" data-id="${c.id}">סימון משיכה</button>

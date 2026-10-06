@@ -597,12 +597,10 @@ tr.row-unknown { background: var(--unknown-bg); }
 
 td.date-cell, .date-cell { font-variant-numeric: tabular-nums; color: var(--ink-secondary); }
 
-.interval-line {
-	font-weight: 400;
-	font-size: 11px;
-	color: var(--ink-muted);
-	white-space: normal;
-	margin-top: 2px;
+.date-cell.has-interval {
+	text-decoration: underline dotted var(--ink-muted) 1px;
+	text-underline-offset: 3px;
+	cursor: help;
 }
 
 .actions-cell {
