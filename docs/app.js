@@ -363,6 +363,15 @@ function menuItem(action, id, label, danger) {
 	return `<button type="button" class="menu-item${danger ? " danger" : ""}" data-action="${action}" data-id="${id}">${label}</button>`;
 }
 
+// The color is proportional to each customer's OWN cadence (a 4-month buyer
+// gets a much wider green window than a 2-week buyer), so two similar-looking
+// dates can land on different colors. Surfacing the cadence itself is what
+// makes that legible instead of looking arbitrary.
+function avgIntervalLine(c) {
+	if (c.avgIntervalDays === null || c.avgIntervalDays === undefined) return "";
+	return `<div class="interval-line">קונה כל כ-${Math.round(c.avgIntervalDays)} ימים</div>`;
+}
+
 function renderMain(rows) {
 	document.querySelector("#table-main").parentElement.nextElementSibling.classList.toggle("hidden", rows.length > 0);
 	el.mainBody.innerHTML = rows
@@ -376,7 +385,7 @@ function renderMain(rows) {
 			<td data-label="טלפון">${phoneCell(c.phone)}</td>
 			<td data-label="שקים שנשארו">${bagGauge(c.id, c.bagsRemaining)}</td>
 			<td data-label="משיכה אחרונה" class="date-cell">${fmtDate(c.lastWithdrawal)}</td>
-			<td data-label="תאריך משוער הבא" class="date-cell">${fmtDate(c.nextEstimate)}</td>
+			<td data-label="תאריך משוער הבא" class="date-cell">${fmtDate(c.nextEstimate)}${avgIntervalLine(c)}</td>
 			<td class="actions-cell">
 				<button class="btn btn-whatsapp" data-action="whatsapp" data-template="reminder" data-id="${c.id}">וואטסאפ</button>
 				<button class="btn" data-action="withdraw" data-id="${c.id}">סימון משיכה</button>

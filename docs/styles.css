@@ -597,6 +597,14 @@ tr.row-unknown { background: var(--unknown-bg); }
 
 td.date-cell, .date-cell { font-variant-numeric: tabular-nums; color: var(--ink-secondary); }
 
+.interval-line {
+	font-weight: 400;
+	font-size: 11px;
+	color: var(--ink-muted);
+	white-space: normal;
+	margin-top: 2px;
+}
+
 .actions-cell {
 	display: flex;
 	gap: 6px;
