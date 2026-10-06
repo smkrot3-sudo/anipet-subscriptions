@@ -1,41 +1,50 @@
 /*
-	Design intent: a fast workbench ledger for pet-store staff, not a generic SaaS
-	admin. Warm kraft/terracotta domain palette (kibble bags, collar tags), one
-	accent hue, weight-driven hierarchy, dense workbench spacing.
+	Design intent: a cheerful pet-shop workbench, not a generic SaaS admin.
+	Sunlit-meadow neutrals + a sky-blue brand accent (nature: sky, water bowls -
+	deliberately a different hue family than every status color, so "press this"
+	is never confused with "this means ready/soon/overdue"). Status colors are
+	bright and candy-like (leaf green / honey / coral) but still map 1:1 to the
+	same meaning they always have. Paw-print motif is the one signature mark
+	unique to this product (favicon, header brand badge, header texture).
 */
 
 :root {
-	--bg: #f6f3ee;
+	--bg: #fbf7ea;
 	--surface: #ffffff;
-	--surface-2: #fbf9f5;
-	--ink: #2b2420;
-	--ink-secondary: #5c5148;
-	--ink-muted: #8a8073;
-	--border: rgba(43, 36, 32, 0.1);
-	--border-strong: rgba(43, 36, 32, 0.16);
+	--surface-2: #fef1da;
+	--ink: #2c3a2e;
+	--ink-secondary: #5a6b57;
+	--ink-muted: #8a9686;
+	--border: rgba(44, 58, 46, 0.1);
+	--border-strong: rgba(44, 58, 46, 0.18);
 
-	--accent: #c1502e;
+	--accent: #2f9bd6;
 	--accent-ink: #ffffff;
-	--accent-wash: #f7e7e0;
+	--accent-wash: #e3f3fb;
 
-	--green: #2e7d4f;
-	--green-bg: #e5f2e9;
-	--orange: #b8860b;
-	--orange-bg: #faf1da;
-	--red: #a83232;
-	--red-bg: #f6e6e4;
-	--unknown: #8a8073;
-	--unknown-bg: #efece6;
+	--green: #2fa866;
+	--green-bg: #e3f7eb;
+	--orange: #e8970f;
+	--orange-bg: #fdf1d8;
+	--red: #e8595f;
+	--red-bg: #fde9ea;
+	--unknown: #938aa3;
+	--unknown-bg: #ece9f3;
+
+	--waiting: #7c6fd1;
+	--waiting-bg: #ece9fb;
+	--renew: #e4679e;
+	--renew-bg: #fbe6f0;
 
 	--whatsapp: #25d366;
 	--whatsapp-ink: #ffffff;
 
-	--radius-s: 6px;
-	--radius-m: 10px;
-	--radius-l: 14px;
+	--radius-s: 10px;
+	--radius-m: 14px;
+	--radius-l: 20px;
 
-	--shadow-card: 0 0 0 1px rgba(43, 36, 32, 0.06), 0 1px 2px -1px rgba(43, 36, 32, 0.06), 0 2px 6px rgba(43, 36, 32, 0.05);
-	--shadow-modal: 0 0 0 1px rgba(43, 36, 32, 0.08), 0 12px 32px -8px rgba(43, 36, 32, 0.28);
+	--shadow-card: 0 0 0 1px rgba(44, 58, 46, 0.06), 0 1px 2px -1px rgba(44, 58, 46, 0.06), 0 2px 6px rgba(44, 58, 46, 0.05);
+	--shadow-modal: 0 0 0 1px rgba(44, 58, 46, 0.08), 0 12px 32px -8px rgba(44, 58, 46, 0.28);
 
 	--ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 
@@ -44,31 +53,42 @@
 
 @media (prefers-color-scheme: dark) {
 	:root:not([data-theme="light"]) {
-		--bg: #1c1815;
-		--surface: #262019;
-		--surface-2: #2c261e;
-		--ink: #f2ede4;
-		--ink-secondary: #c9c0b3;
-		--ink-muted: #8f8677;
+		--bg: #181f1a;
+		--surface: #212a22;
+		--surface-2: #273025;
+		--ink: #eef3ea;
+		--ink-secondary: #c2cdbf;
+		--ink-muted: #8d9a8a;
 		--border: rgba(255, 255, 255, 0.09);
-		--border-strong: rgba(255, 255, 255, 0.14);
+		--border-strong: rgba(255, 255, 255, 0.15);
 
-		--accent: #e07a52;
-		--accent-ink: #241109;
-		--accent-wash: #3a271f;
+		--accent: #5bb8ea;
+		--accent-ink: #0c2433;
+		--accent-wash: #1d3340;
 
-		--green: #6fbf8b;
-		--green-bg: #1f3327;
-		--orange: #dcb14a;
-		--orange-bg: #3a3120;
-		--red: #e08585;
-		--red-bg: #3a2523;
-		--unknown: #a39a8c;
-		--unknown-bg: #2d2822;
+		--green: #6fcf96;
+		--green-bg: #1e3426;
+		--orange: #f0b949;
+		--orange-bg: #3b3017;
+		--red: #ee8086;
+		--red-bg: #3a2325;
+		--unknown: #b0a8c2;
+		--unknown-bg: #2c2a37;
+
+		--waiting: #a79af0;
+		--waiting-bg: #2a2740;
+		--renew: #ef8fbb;
+		--renew-bg: #3a2530;
 
 		--shadow-card: 0 0 0 1px rgba(255, 255, 255, 0.07);
 		--shadow-modal: 0 0 0 1px rgba(255, 255, 255, 0.1), 0 16px 40px -8px rgba(0, 0, 0, 0.55);
 		color-scheme: dark;
+	}
+
+	:root:not([data-theme="light"]) .app-header {
+		background:
+			radial-gradient(circle, rgba(238, 243, 234, 0.05) 2.4px, transparent 2.6px) 0 0 / 30px 30px,
+			var(--surface);
 	}
 }
 
@@ -94,11 +114,37 @@ h1, h2, h3 { text-wrap: balance; margin: 0; }
 	align-items: center;
 	justify-content: space-between;
 	padding: 14px 20px;
-	background: var(--surface);
+	background:
+		radial-gradient(circle, rgba(44, 58, 46, 0.05) 2.4px, transparent 2.6px) 0 0 / 30px 30px,
+		var(--surface);
 	border-bottom: 1px solid var(--border);
 	position: sticky;
 	top: 0;
 	z-index: 5;
+}
+
+.app-header-brand {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.brand-mark {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	flex: none;
+	width: 40px;
+	height: 40px;
+	border-radius: 999px;
+	background: var(--accent-wash);
+	color: var(--accent);
+	animation: brand-pop 500ms var(--ease-out);
+}
+
+@keyframes brand-pop {
+	from { transform: scale(0.6) rotate(-8deg); opacity: 0; }
+	to { transform: scale(1) rotate(0); opacity: 1; }
 }
 
 .app-header-titles {
@@ -143,9 +189,9 @@ h1, h2, h3 { text-wrap: balance; margin: 0; }
 	font-size: 0.85rem;
 	font-weight: 600;
 	cursor: pointer;
-	transition: background 120ms var(--ease-out), border-color 120ms var(--ease-out), color 120ms var(--ease-out);
+	transition: background 120ms var(--ease-out), border-color 120ms var(--ease-out), color 120ms var(--ease-out), transform 120ms var(--ease-out);
 }
-.nav-btn:hover { background: var(--surface-2); }
+.nav-btn:hover { background: var(--surface-2); transform: translateY(-1px); }
 .nav-btn.active {
 	background: var(--accent);
 	border-color: var(--accent);
@@ -236,11 +282,22 @@ h1, h2, h3 { text-wrap: balance; margin: 0; }
 	color: var(--ink-muted);
 }
 
+.stat-tile.stat-green { background: var(--green-bg); }
 .stat-tile.stat-green .stat-value { color: var(--green); }
+.stat-tile.stat-orange { background: var(--orange-bg); }
 .stat-tile.stat-orange .stat-value { color: var(--orange); }
-.stat-tile.stat-waiting .stat-value,
-.stat-tile.stat-renew .stat-value { color: var(--accent); }
+.stat-tile.stat-waiting { background: var(--waiting-bg); }
+.stat-tile.stat-waiting .stat-value { color: var(--waiting); }
+.stat-tile.stat-renew { background: var(--renew-bg); }
+.stat-tile.stat-renew .stat-value { color: var(--renew); }
+.stat-tile.stat-stuck { background: var(--red-bg); }
 .stat-tile.stat-stuck .stat-value { color: var(--red); }
+
+.stat-tile.stat-green .stat-label::before { content: "📣 "; }
+.stat-tile.stat-orange .stat-label::before { content: "⏳ "; }
+.stat-tile.stat-waiting .stat-label::before { content: "🐾 "; }
+.stat-tile.stat-renew .stat-label::before { content: "🦴 "; }
+.stat-tile.stat-stuck .stat-label::before { content: "💬 "; }
 
 .stat-strip--inline {
 	max-width: none;
@@ -692,7 +749,7 @@ td.date-cell, .date-cell { font-variant-numeric: tabular-nums; color: var(--ink-
 	white-space: nowrap;
 	transition: background 120ms var(--ease-out), border-color 120ms var(--ease-out), transform 100ms var(--ease-out);
 }
-.btn:hover { background: var(--surface-2); border-color: var(--border-strong); }
+.btn:hover { background: var(--surface-2); border-color: var(--border-strong); transform: translateY(-1px); }
 .btn:active { transform: scale(0.97); }
 .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
@@ -871,6 +928,8 @@ td.date-cell, .date-cell { font-variant-numeric: tabular-nums; color: var(--ink-
 	animation: toast-in 200ms var(--ease-out);
 }
 .toast.error { background: var(--red); color: #fff; }
+.toast::before { content: "🐾"; flex: none; }
+.toast.error::before { content: "⚠️"; }
 
 .toast-undo {
 	flex: none;

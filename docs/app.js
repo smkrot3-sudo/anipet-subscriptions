@@ -388,8 +388,8 @@ function renderMain(rows) {
 			<td data-label="משיכה אחרונה" class="date-cell">${fmtDate(c.lastWithdrawal)}</td>
 			<td data-label="תאריך משוער הבא" class="date-cell${c.avgIntervalDays != null ? " has-interval" : ""}" title="${escapeHtml(intervalTitle(c))}">${fmtDate(c.nextEstimate)}</td>
 			<td class="actions-cell">
-				<button class="btn btn-whatsapp" data-action="whatsapp" data-template="reminder" data-id="${c.id}">וואטסאפ</button>
-				<button class="btn" data-action="withdraw" data-id="${c.id}">סימון משיכה</button>
+				<button class="btn btn-whatsapp" data-action="whatsapp" data-template="reminder" data-id="${c.id}">💬 וואטסאפ</button>
+				<button class="btn" data-action="withdraw" data-id="${c.id}">🛍️ סימון משיכה</button>
 				${overflowMenu([
 					menuItem("wait", c.id, "עדיין לא צריך"),
 					awaitingMenuItem(c),
@@ -417,8 +417,8 @@ function renderWaiting(rows) {
 			<td data-label="טלפון">${phoneCell(c.phone)}</td>
 			<td data-label="לחזור אליו בתאריך" class="date-cell">${fmtDate(c.waitingUntil)}</td>
 			<td class="actions-cell">
-				<button class="btn btn-whatsapp" data-action="whatsapp" data-template="waiting" data-id="${c.id}">וואטסאפ</button>
-				<button class="btn" data-action="withdraw" data-id="${c.id}">משך שק</button>
+				<button class="btn btn-whatsapp" data-action="whatsapp" data-template="waiting" data-id="${c.id}">💬 וואטסאפ</button>
+				<button class="btn" data-action="withdraw" data-id="${c.id}">🛍️ משך שק</button>
 				${overflowMenu([
 					menuItem("extend-wait", c.id, "הארכת המתנה"),
 					awaitingMenuItem(c),
@@ -443,8 +443,8 @@ function renderLastBag(rows) {
 			<td data-label="טלפון">${phoneCell(c.phone)}</td>
 			<td data-label="שקים שנשארו">${bagGauge(c.id, c.bagsRemaining)}</td>
 			<td class="actions-cell">
-				<button class="btn btn-whatsapp" data-action="whatsapp" data-template="renew" data-id="${c.id}">וואטסאפ</button>
-				<button class="btn btn-primary" data-action="renew" data-id="${c.id}">חודש</button>
+				<button class="btn btn-whatsapp" data-action="whatsapp" data-template="renew" data-id="${c.id}">💬 וואטסאפ</button>
+				<button class="btn btn-primary" data-action="renew" data-id="${c.id}">🦴 חודש</button>
 				${overflowMenu([menuItem("renewal-wait", c.id, "לחזור אליו בעוד כמה ימים"), awaitingMenuItem(c)])}
 			</td>
 		</tr>`
@@ -466,8 +466,8 @@ function renderLastBagWaiting(rows) {
 			<td data-label="טלפון">${phoneCell(c.phone)}</td>
 			<td data-label="לחזור אליו בתאריך" class="date-cell">${fmtDate(c.renewalWaitingUntil)}</td>
 			<td class="actions-cell">
-				<button class="btn btn-whatsapp" data-action="whatsapp" data-template="renew" data-id="${c.id}">וואטסאפ</button>
-				<button class="btn btn-primary" data-action="renew" data-id="${c.id}">חודש</button>
+				<button class="btn btn-whatsapp" data-action="whatsapp" data-template="renew" data-id="${c.id}">💬 וואטסאפ</button>
+				<button class="btn btn-primary" data-action="renew" data-id="${c.id}">🦴 חודש</button>
 				${overflowMenu([awaitingMenuItem(c), menuItem("renewal-unwait", c.id, "חזרה לרשימת החידוש")])}
 			</td>
 		</tr>`
@@ -484,15 +484,15 @@ function renderRemovedResults(rows) {
 	}
 	el.removedResults.classList.remove("hidden");
 	el.removedResults.innerHTML = `
-		<h3 class="removed-results-title">נמצאו לקוחות מוסתרים</h3>
+		<h3 class="removed-results-title">🔍 נמצאו לקוחות מוסתרים</h3>
 		${rows
 			.map(
 				(c) => `
 			<div class="removed-row">
-				<div class="name-line"><span class="status-chip status-chip--removed">מוסתר</span><span>${escapeHtml(c.name)}</span></div>
+				<div class="name-line"><span class="status-chip status-chip--removed">🙈 מוסתר</span><span>${escapeHtml(c.name)}</span></div>
 				<div class="removed-meta">${phoneCell(c.phone)}<span class="removed-date">הוסר/ה בתאריך ${fmtDate((c.removedAt || "").slice(0, 10))}</span></div>
 				<div class="removed-reason">${c.removalReason ? `סיבת ההסרה: ${escapeHtml(c.removalReason)}` : "לא נרשמה סיבת הסרה"}</div>
-				<button type="button" class="btn btn-primary" data-action="restore" data-id="${c.id}">הצג מחדש</button>
+				<button type="button" class="btn btn-primary" data-action="restore" data-id="${c.id}">👀 הצג מחדש</button>
 			</div>`
 			)
 			.join("")}`;
