@@ -48,6 +48,8 @@
 
 	--ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 
+	--cursor-paw: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 32 32'%3E%3Cg fill='%232c3a2e' stroke='%23ffffff' stroke-width='1.4' stroke-linejoin='round'%3E%3Cellipse cx='16' cy='22' rx='8' ry='6.5'/%3E%3Cellipse cx='7' cy='13' rx='3.6' ry='4.6'/%3E%3Cellipse cx='25' cy='13' rx='3.6' ry='4.6'/%3E%3Cellipse cx='11.5' cy='6.5' rx='3' ry='3.8'/%3E%3Cellipse cx='20.5' cy='6.5' rx='3' ry='3.8'/%3E%3C/g%3E%3C/svg%3E") 14 10, auto;
+
 	color-scheme: light;
 }
 
@@ -105,7 +107,16 @@
 	}
 }
 
-* { box-sizing: border-box; }
+* { box-sizing: border-box; cursor: var(--cursor-paw); }
+
+input[type="text"],
+input[type="tel"],
+input[type="number"],
+input[type="date"],
+input[type="search"],
+textarea {
+	cursor: text;
+}
 
 html { -webkit-font-smoothing: antialiased; }
 
@@ -255,7 +266,7 @@ h1, h2, h3 { text-wrap: balance; margin: 0; }
 	font-family: inherit;
 	font-size: 0.85rem;
 	font-weight: 600;
-	cursor: pointer;
+	cursor: var(--cursor-paw);
 	transition: background 120ms var(--ease-out), border-color 120ms var(--ease-out), color 120ms var(--ease-out), transform 120ms var(--ease-out);
 }
 .nav-btn:hover { background: var(--surface-2); transform: translateY(-1px); }
@@ -507,7 +518,7 @@ h1, h2, h3 { text-wrap: balance; margin: 0; }
 	font-size: 0.85rem;
 	font-family: inherit;
 	color: var(--ink-secondary);
-	cursor: pointer;
+	cursor: var(--cursor-paw);
 	transition: border-color 150ms var(--ease-out), background 150ms var(--ease-out);
 }
 #sort-select:focus {
@@ -555,7 +566,7 @@ h1, h2, h3 { text-wrap: balance; margin: 0; }
 	border: 1px solid var(--border);
 	border-radius: 999px;
 	padding: 4px 10px 4px 8px;
-	cursor: pointer;
+	cursor: var(--cursor-paw);
 	transition: background 120ms var(--ease-out), border-color 120ms var(--ease-out), color 120ms var(--ease-out);
 }
 .legend-chip:hover { background: var(--surface); border-color: var(--border-strong); }
@@ -685,7 +696,7 @@ tr.row-unknown { background: var(--unknown-bg); }
 	background: transparent;
 	color: var(--ink-muted);
 	border-radius: var(--radius-s);
-	cursor: pointer;
+	cursor: var(--cursor-paw);
 	transition: background 120ms var(--ease-out), color 120ms var(--ease-out);
 }
 .icon-btn:hover { background: var(--surface-2); color: var(--accent); }
@@ -752,7 +763,7 @@ td.date-cell, .date-cell { font-variant-numeric: tabular-nums; color: var(--ink-
 	border-radius: var(--radius-s);
 	font-size: 16px;
 	line-height: 1;
-	cursor: pointer;
+	cursor: var(--cursor-paw);
 	transition: background 120ms var(--ease-out), border-color 120ms var(--ease-out);
 }
 .menu-trigger:hover { background: var(--surface-2); }
@@ -796,7 +807,7 @@ td.date-cell, .date-cell { font-variant-numeric: tabular-nums; color: var(--ink-
 	font-size: 12.5px;
 	font-weight: 500;
 	border-radius: var(--radius-s);
-	cursor: pointer;
+	cursor: var(--cursor-paw);
 	white-space: nowrap;
 }
 .menu-item:hover { background: var(--surface); }
@@ -812,7 +823,7 @@ td.date-cell, .date-cell { font-variant-numeric: tabular-nums; color: var(--ink-
 	font-size: 12.5px;
 	font-weight: 500;
 	font-family: inherit;
-	cursor: pointer;
+	cursor: var(--cursor-paw);
 	white-space: nowrap;
 	transition: background 120ms var(--ease-out), border-color 120ms var(--ease-out), transform 100ms var(--ease-out);
 }
@@ -1015,7 +1026,7 @@ td.date-cell, .date-cell { font-variant-numeric: tabular-nums; color: var(--ink-
 	font-size: 0.78rem;
 	font-weight: 700;
 	font-family: inherit;
-	cursor: pointer;
+	cursor: var(--cursor-paw);
 }
 .toast-undo:hover { background: rgba(255, 255, 255, 0.12); }
 .toast.hidden { display: none; }
