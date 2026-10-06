@@ -90,6 +90,15 @@
 			radial-gradient(circle, rgba(238, 243, 234, 0.05) 2.4px, transparent 2.6px) 0 0 / 30px 30px,
 			var(--surface);
 	}
+
+	:root:not([data-theme="light"]) body {
+		background-image:
+			url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Cg fill='%23eef3ea' fill-opacity='0.04' transform='rotate(18 32 32)'%3E%3Cellipse cx='32' cy='42' rx='10' ry='8'/%3E%3Cellipse cx='18' cy='26' rx='5' ry='6.5'/%3E%3Cellipse cx='46' cy='26' rx='5' ry='6.5'/%3E%3Cellipse cx='24' cy='16' rx='4' ry='5.5'/%3E%3Cellipse cx='40' cy='16' rx='4' ry='5.5'/%3E%3C/g%3E%3C/svg%3E"),
+			radial-gradient(640px circle at 100% -10%, rgba(91, 184, 234, 0.16), transparent 60%),
+			radial-gradient(520px circle at -10% 15%, rgba(111, 207, 150, 0.13), transparent 60%),
+			radial-gradient(560px circle at 100% 60%, rgba(239, 143, 187, 0.12), transparent 55%),
+			radial-gradient(520px circle at -5% 100%, rgba(240, 185, 73, 0.12), transparent 60%);
+	}
 }
 
 * { box-sizing: border-box; }
@@ -99,7 +108,15 @@ html { -webkit-font-smoothing: antialiased; }
 body {
 	margin: 0;
 	font-family: "Heebo", system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
-	background: var(--bg);
+	background-color: var(--bg);
+	background-image:
+		url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='64' height='64' viewBox='0 0 64 64'%3E%3Cg fill='%232c3a2e' fill-opacity='0.045' transform='rotate(18 32 32)'%3E%3Cellipse cx='32' cy='42' rx='10' ry='8'/%3E%3Cellipse cx='18' cy='26' rx='5' ry='6.5'/%3E%3Cellipse cx='46' cy='26' rx='5' ry='6.5'/%3E%3Cellipse cx='24' cy='16' rx='4' ry='5.5'/%3E%3Cellipse cx='40' cy='16' rx='4' ry='5.5'/%3E%3C/g%3E%3C/svg%3E"),
+		radial-gradient(640px circle at 100% -10%, rgba(47, 155, 214, 0.14), transparent 60%),
+		radial-gradient(520px circle at -10% 15%, rgba(47, 168, 102, 0.12), transparent 60%),
+		radial-gradient(560px circle at 100% 60%, rgba(228, 103, 158, 0.1), transparent 55%),
+		radial-gradient(520px circle at -5% 100%, rgba(232, 151, 15, 0.12), transparent 60%);
+	background-repeat: repeat, no-repeat, no-repeat, no-repeat, no-repeat;
+	background-size: 110px 110px, auto, auto, auto, auto;
 	color: var(--ink);
 	font-size: 14px;
 	line-height: 1.5;
@@ -126,7 +143,10 @@ h1, h2, h3 { text-wrap: balance; margin: 0; }
 .app-header-brand {
 	display: flex;
 	align-items: center;
-	gap: 10px;
+	gap: 12px;
+	padding: 6px 16px 6px 8px;
+	border-radius: 999px;
+	background: linear-gradient(120deg, var(--accent-wash), var(--renew-bg));
 }
 
 .brand-mark {
@@ -134,36 +154,47 @@ h1, h2, h3 { text-wrap: balance; margin: 0; }
 	align-items: center;
 	justify-content: center;
 	flex: none;
-	width: 40px;
-	height: 40px;
+	width: 56px;
+	height: 56px;
 	border-radius: 999px;
-	background: var(--accent-wash);
-	color: var(--accent);
-	animation: brand-pop 500ms var(--ease-out);
+	background: var(--surface);
+	box-shadow: var(--shadow-card);
+	animation: brand-pop 550ms var(--ease-out);
 }
 
 @keyframes brand-pop {
-	from { transform: scale(0.6) rotate(-8deg); opacity: 0; }
+	from { transform: scale(0.5) rotate(-12deg); opacity: 0; }
 	to { transform: scale(1) rotate(0); opacity: 1; }
 }
 
 .app-header-titles {
 	display: flex;
 	flex-direction: column;
-	gap: 2px;
+	gap: 4px;
 }
 
 .app-eyebrow {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	align-self: flex-start;
 	font-size: 11px;
-	font-weight: 600;
+	font-weight: 700;
 	color: var(--accent);
 	letter-spacing: 0.02em;
 }
 
 .app-header h1 {
-	font-size: 1.2rem;
+	font-size: 1.45rem;
 	font-weight: 800;
 	letter-spacing: -0.01em;
+	background: linear-gradient(90deg, var(--accent), var(--renew));
+	-webkit-background-clip: text;
+	background-clip: text;
+	color: var(--ink);
+}
+@supports (-webkit-background-clip: text) or (background-clip: text) {
+	.app-header h1 { -webkit-text-fill-color: transparent; color: transparent; }
 }
 
 .page-nav {
@@ -777,11 +808,18 @@ td.date-cell, .date-cell { font-variant-numeric: tabular-nums; color: var(--ink-
 .btn-danger:hover { background: var(--red-bg); }
 
 .empty-hint {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	gap: 8px;
 	color: var(--ink-muted);
-	font-size: 0.85rem;
-	padding: 10px 2px 0;
+	font-size: 0.9rem;
+	padding: 26px 2px 18px;
+	text-align: center;
 }
 .empty-hint.hidden { display: none; }
+.empty-hint p { margin: 0; }
+.empty-illustration { color: var(--border-strong); }
 
 .pagination {
 	display: flex;

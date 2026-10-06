@@ -8,23 +8,45 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" />
-<link rel="stylesheet" href="styles.css?v=18" />
+<link rel="stylesheet" href="styles.css?v=19" />
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+	<symbol id="icon-dog-sit" viewBox="0 0 64 64">
+		<ellipse cx="32" cy="46" rx="17" ry="15" fill="currentColor" />
+		<ellipse cx="19" cy="12" rx="5" ry="9" fill="currentColor" transform="rotate(-15 19 12)" />
+		<ellipse cx="45" cy="12" rx="5" ry="9" fill="currentColor" transform="rotate(15 45 12)" />
+		<circle cx="32" cy="22" r="13" fill="currentColor" />
+		<ellipse cx="48" cy="50" rx="5" ry="8" fill="currentColor" transform="rotate(-35 48 50)" />
+		<ellipse cx="24" cy="58" rx="4" ry="3" fill="currentColor" />
+		<ellipse cx="40" cy="58" rx="4" ry="3" fill="currentColor" />
+	</symbol>
+</svg>
+
 <header class="app-header">
 	<div class="app-header-brand">
 		<span class="brand-mark" aria-hidden="true">
-			<svg viewBox="0 0 32 32" width="26" height="26">
-				<ellipse cx="16" cy="21" rx="7" ry="6" fill="currentColor" />
-				<ellipse cx="8.5" cy="12" rx="3.2" ry="4" fill="currentColor" />
-				<ellipse cx="23.5" cy="12" rx="3.2" ry="4" fill="currentColor" />
-				<ellipse cx="12.5" cy="7.5" rx="2.6" ry="3.4" fill="currentColor" />
-				<ellipse cx="19.5" cy="7.5" rx="2.6" ry="3.4" fill="currentColor" />
+			<svg viewBox="0 0 64 64" width="52" height="52">
+				<circle cx="23" cy="37" r="15" fill="#d9a066" />
+				<ellipse cx="11" cy="24" rx="6" ry="9" fill="#c0834a" transform="rotate(-25 11 24)" />
+				<ellipse cx="35" cy="24" rx="6" ry="9" fill="#c0834a" transform="rotate(25 35 24)" />
+				<ellipse cx="23" cy="43" rx="9" ry="7" fill="#fbead2" />
+				<circle cx="18" cy="35" r="2.1" fill="#2c3a2e" />
+				<circle cx="28" cy="35" r="2.1" fill="#2c3a2e" />
+				<ellipse cx="23" cy="42" rx="2.4" ry="2" fill="#2c3a2e" />
+				<circle cx="44" cy="39" r="14" fill="#f5f1ea" />
+				<path d="M33 31 37 19 41 30Z" fill="#f5f1ea" />
+				<path d="M55 31 51 19 47 30Z" fill="#f5f1ea" />
+				<path d="M35 29 37.2 22.5 39.4 28.4Z" fill="#f4c7d8" />
+				<path d="M53 29 50.8 22.5 48.6 28.4Z" fill="#f4c7d8" />
+				<circle cx="39" cy="39" r="1.8" fill="#3a3a3a" />
+				<circle cx="49" cy="39" r="1.8" fill="#3a3a3a" />
+				<path d="M43 42.5 44.4 44.5 45.8 42.5Z" fill="#f4a6c0" />
 			</svg>
 		</span>
 		<div class="app-header-titles">
-			<span class="app-eyebrow">אניפט · מעקב מנויים 🌿</span>
-			<h1>מנויי שקי מזון 🐶🐱</h1>
+			<span class="app-eyebrow">🌿 אניפט · מעקב מנויים</span>
+			<h1>מנויי שקי מזון</h1>
 		</div>
 	</div>
 	<button id="btn-add-customer" class="btn btn-primary">+ 🐾 צירוף לקוח חדש</button>
@@ -93,7 +115,10 @@
 					<tbody></tbody>
 				</table>
 			</div>
-			<p class="empty-hint hidden">אין לקוחות להצגה כרגע 🐾</p>
+			<div class="empty-hint hidden">
+				<svg class="empty-illustration" width="56" height="56" aria-hidden="true"><use href="#icon-dog-sit"></use></svg>
+				<p>אין לקוחות להצגה כרגע</p>
+			</div>
 			<div class="pagination" id="main-pagination"></div>
 		</section>
 	</div>
@@ -114,7 +139,10 @@
 					<tbody></tbody>
 				</table>
 			</div>
-			<p class="empty-hint hidden">אין לקוחות ברשימת ההמתנה כרגע 🌿</p>
+			<div class="empty-hint hidden">
+				<svg class="empty-illustration" width="56" height="56" aria-hidden="true"><use href="#icon-dog-sit"></use></svg>
+				<p>אין לקוחות ברשימת ההמתנה כרגע</p>
+			</div>
 		</section>
 	</div>
 
@@ -134,7 +162,10 @@
 					<tbody></tbody>
 				</table>
 			</div>
-			<p class="empty-hint hidden">כל הכבוד, אין לקוחות שצריכים חידוש כרגע 🎉</p>
+			<div class="empty-hint hidden">
+				<svg class="empty-illustration" width="56" height="56" aria-hidden="true"><use href="#icon-dog-sit"></use></svg>
+				<p>כל הכבוד, אין לקוחות שצריכים חידוש כרגע 🎉</p>
+			</div>
 		</section>
 
 		<section class="table-section">
@@ -152,7 +183,10 @@
 					<tbody></tbody>
 				</table>
 			</div>
-			<p class="empty-hint hidden">אין לקוחות שדחו את שיחת החידוש כרגע 🌿</p>
+			<div class="empty-hint hidden">
+				<svg class="empty-illustration" width="56" height="56" aria-hidden="true"><use href="#icon-dog-sit"></use></svg>
+				<p>אין לקוחות שדחו את שיחת החידוש כרגע</p>
+			</div>
 		</section>
 	</div>
 
