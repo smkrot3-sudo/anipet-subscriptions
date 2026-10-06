@@ -30,6 +30,24 @@ function todayISO(tz = "Asia/Jerusalem") {
 	return fmt.format(new Date());
 }
 
+// SQLite's own datetime('now') is UTC, which read hours off from the store's
+// actual local time in the activity log. Build the timestamp in Jerusalem time
+// instead so "10:19" in the log really is 10:19 for whoever's reading it.
+function nowDateTimeISO(tz = "Asia/Jerusalem") {
+	const fmt = new Intl.DateTimeFormat("en-CA", {
+		timeZone: tz,
+		year: "numeric",
+		month: "2-digit",
+		day: "2-digit",
+		hour: "2-digit",
+		minute: "2-digit",
+		second: "2-digit",
+		hour12: false,
+	});
+	const parts = Object.fromEntries(fmt.formatToParts(new Date()).map((p) => [p.type, p.value]));
+	return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`;
+}
+
 function daysBetween(a, b) {
 	const da = new Date(a + "T00:00:00Z");
 	const db = new Date(b + "T00:00:00Z");
@@ -53,7 +71,7 @@ function isValidDateStr(s) {
 async function logActivity(db, customerBefore, action, summary, { createdWithdrawalIds = null, hardDelete = false } = {}) {
 	const result = await db
 		.prepare(
-			"INSERT INTO activity_log (customer_id, customer_name, action, summary, before_state, created_withdrawal_ids, hard_delete) VALUES (?, ?, ?, ?, ?, ?, ?)"
+			"INSERT INTO activity_log (customer_id, customer_name, action, summary, before_state, created_withdrawal_ids, hard_delete, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
 		)
 		.bind(
 			customerBefore.id,
@@ -62,7 +80,8 @@ async function logActivity(db, customerBefore, action, summary, { createdWithdra
 			summary,
 			hardDelete ? null : JSON.stringify(customerBefore),
 			createdWithdrawalIds ? JSON.stringify(createdWithdrawalIds) : null,
-			hardDelete ? 1 : 0
+			hardDelete ? 1 : 0,
+			nowDateTimeISO()
 		)
 		.run();
 	return result.meta.last_row_id;
