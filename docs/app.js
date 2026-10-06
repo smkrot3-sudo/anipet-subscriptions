@@ -14,6 +14,9 @@ const el = {
 	modal: document.getElementById("modal"),
 	search: document.getElementById("search-box"),
 	sort: document.getElementById("sort-select"),
+	sortWaiting: document.getElementById("sort-waiting"),
+	sortLastBag: document.getElementById("sort-lastbag"),
+	sortLastBagWaiting: document.getElementById("sort-lastbagwaiting"),
 	removedResults: document.getElementById("removed-results"),
 };
 
@@ -248,23 +251,36 @@ function renderStatStrip() {
 
 let statusFilter = null;
 
-function sortMainRows(rows, mode) {
+// Shared by all four tables: "name"/"bags" are self-explanatory; "date" sorts
+// by whichever date field that table cares about (nextEstimate / waitingUntil /
+// renewalWaitingUntil); anything else (e.g. "urgency") keeps the server's order.
+function sortRows(rows, mode, dateField) {
 	const copy = [...rows];
 	if (mode === "name") return copy.sort((a, b) => a.name.localeCompare(b.name, "he"));
 	if (mode === "bags") return copy.sort((a, b) => a.bagsRemaining - b.bagsRemaining);
-	if (mode === "date") {
+	if (mode === "date" && dateField) {
 		return copy.sort((a, b) => {
-			if (a.nextEstimate && b.nextEstimate) return a.nextEstimate < b.nextEstimate ? -1 : a.nextEstimate > b.nextEstimate ? 1 : 0;
-			if (a.nextEstimate) return -1;
-			if (b.nextEstimate) return 1;
+			const av = a[dateField], bv = b[dateField];
+			if (av && bv) return av < bv ? -1 : av > bv ? 1 : 0;
+			if (av) return -1;
+			if (bv) return 1;
 			return 0;
 		});
 	}
-	return copy; // "urgency" - the server already returns this order
+	return copy;
 }
 
-const MAIN_PAGE_SIZE = 25;
-let mainPage = 1;
+const PAGE_SIZE = 25;
+const pageState = { main: 1, waiting: 1, lastBag: 1, lastBagWaiting: 1 };
+
+function paginate(key, rows, renderFn, paginationId) {
+	const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+	if (pageState[key] > totalPages) pageState[key] = totalPages;
+	if (pageState[key] < 1) pageState[key] = 1;
+	const pageRows = rows.slice((pageState[key] - 1) * PAGE_SIZE, pageState[key] * PAGE_SIZE);
+	renderFn(pageRows);
+	renderPagination(paginationId, pageState[key], totalPages, rows.length, (p) => (pageState[key] = p));
+}
 
 function applyFilter() {
 	const q = (el.search.value || "").trim().toLowerCase();
@@ -272,18 +288,18 @@ function applyFilter() {
 
 	let main = allGroups.main.filter(match);
 	if (statusFilter) main = main.filter((c) => c.color === statusFilter);
-	main = sortMainRows(main, el.sort.value);
+	main = sortRows(main, el.sort.value, "nextEstimate");
+	paginate("main", main, renderMain, "main-pagination");
 
-	const totalPages = Math.max(1, Math.ceil(main.length / MAIN_PAGE_SIZE));
-	if (mainPage > totalPages) mainPage = totalPages;
-	if (mainPage < 1) mainPage = 1;
-	const pageRows = main.slice((mainPage - 1) * MAIN_PAGE_SIZE, mainPage * MAIN_PAGE_SIZE);
+	const waiting = sortRows(allGroups.waitingList.filter(match), el.sortWaiting.value, "waitingUntil");
+	paginate("waiting", waiting, renderWaiting, "waiting-pagination");
 
-	renderMain(pageRows);
-	renderMainPagination(main.length, totalPages);
-	renderWaiting(allGroups.waitingList.filter(match));
-	renderLastBag(allGroups.lastBag.filter(match));
-	renderLastBagWaiting(allGroups.lastBagWaitingList.filter(match));
+	const lastBag = sortRows(allGroups.lastBag.filter(match), el.sortLastBag.value, null);
+	paginate("lastBag", lastBag, renderLastBag, "lastbag-pagination");
+
+	const lastBagWaiting = sortRows(allGroups.lastBagWaitingList.filter(match), el.sortLastBagWaiting.value, "renewalWaitingUntil");
+	paginate("lastBagWaiting", lastBagWaiting, renderLastBagWaiting, "lastbagwaiting-pagination");
+
 	renderRemovedResults(q ? allGroups.removed.filter(match) : []);
 
 	document.querySelectorAll(".legend-chip").forEach((chip) => {
@@ -291,41 +307,54 @@ function applyFilter() {
 	});
 }
 
-function renderMainPagination(total, totalPages) {
-	const wrap = document.getElementById("main-pagination");
+function renderPagination(containerId, page, totalPages, total, setPage) {
+	const wrap = document.getElementById(containerId);
+	if (!wrap) return;
 	if (totalPages <= 1) {
 		wrap.innerHTML = "";
 		return;
 	}
 	wrap.innerHTML = `
-		<button type="button" class="btn" id="main-prev"${mainPage <= 1 ? " disabled" : ""}>הקודם</button>
-		<span class="pagination-label">עמוד ${mainPage} מתוך ${totalPages} (${total} לקוחות)</span>
-		<button type="button" class="btn" id="main-next"${mainPage >= totalPages ? " disabled" : ""}>הבא</button>`;
-	wrap.querySelector("#main-prev")?.addEventListener("click", () => {
-		mainPage--;
+		<button type="button" class="btn" id="${containerId}-prev"${page <= 1 ? " disabled" : ""}>הקודם</button>
+		<span class="pagination-label">עמוד ${page} מתוך ${totalPages} (${total} לקוחות)</span>
+		<button type="button" class="btn" id="${containerId}-next"${page >= totalPages ? " disabled" : ""}>הבא</button>`;
+	wrap.querySelector(`#${containerId}-prev`)?.addEventListener("click", () => {
+		setPage(page - 1);
 		applyFilter();
 		document.querySelector(".page.active")?.scrollIntoView({ behavior: "smooth", block: "start" });
 	});
-	wrap.querySelector("#main-next")?.addEventListener("click", () => {
-		mainPage++;
+	wrap.querySelector(`#${containerId}-next`)?.addEventListener("click", () => {
+		setPage(page + 1);
 		applyFilter();
 		document.querySelector(".page.active")?.scrollIntoView({ behavior: "smooth", block: "start" });
 	});
 }
 
 el.search.addEventListener("input", () => {
-	mainPage = 1;
+	pageState.main = pageState.waiting = pageState.lastBag = pageState.lastBagWaiting = 1;
 	applyFilter();
 });
 el.sort.addEventListener("change", () => {
-	mainPage = 1;
+	pageState.main = 1;
+	applyFilter();
+});
+el.sortWaiting.addEventListener("change", () => {
+	pageState.waiting = 1;
+	applyFilter();
+});
+el.sortLastBag.addEventListener("change", () => {
+	pageState.lastBag = 1;
+	applyFilter();
+});
+el.sortLastBagWaiting.addEventListener("change", () => {
+	pageState.lastBagWaiting = 1;
 	applyFilter();
 });
 
 document.querySelectorAll(".legend-chip").forEach((chip) => {
 	chip.addEventListener("click", () => {
 		statusFilter = statusFilter === chip.dataset.filter ? null : chip.dataset.filter;
-		mainPage = 1;
+		pageState.main = 1;
 		applyFilter();
 	});
 });

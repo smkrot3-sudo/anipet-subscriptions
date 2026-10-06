@@ -87,16 +87,22 @@ async function logActivity(db, customerBefore, action, summary, { createdWithdra
 	return result.meta.last_row_id;
 }
 
+const RECENT_GAPS_WINDOW = 3;
+
 function computeEstimate(history) {
-	// history: withdrawals for one customer, sorted ascending by taken_at
+	// history: withdrawals for one customer, sorted ascending by taken_at.
+	// Only the most recent gaps feed the estimate (not the customer's entire
+	// history) so a buying-pace change shows up quickly instead of being
+	// dragged back toward stale old behavior by months-old gaps.
 	if (history.length < 2) {
 		return { avgIntervalDays: null, nextEstimate: null, lastWithdrawal: history[0]?.taken_at ?? null };
 	}
-	let totalGap = 0;
+	const gaps = [];
 	for (let i = 1; i < history.length; i++) {
-		totalGap += daysBetween(history[i - 1].taken_at, history[i].taken_at);
+		gaps.push(daysBetween(history[i - 1].taken_at, history[i].taken_at));
 	}
-	const avgIntervalDays = totalGap / (history.length - 1);
+	const recentGaps = gaps.slice(-RECENT_GAPS_WINDOW);
+	const avgIntervalDays = recentGaps.reduce((sum, g) => sum + g, 0) / recentGaps.length;
 	const last = history[history.length - 1].taken_at;
 	const nextEstimate = addDaysISO(last, avgIntervalDays);
 	return { avgIntervalDays, nextEstimate, lastWithdrawal: last };

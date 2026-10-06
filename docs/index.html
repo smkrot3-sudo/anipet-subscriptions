@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" />
-<link rel="stylesheet" href="styles.css?v=21" />
+<link rel="stylesheet" href="styles.css?v=22" />
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -88,7 +88,7 @@
 	<div class="page" data-page="main">
 		<div class="toolbar">
 			<input type="search" id="search-box" placeholder="חיפוש לפי שם או טלפון..." />
-			<select id="sort-select" aria-label="מיון">
+			<select id="sort-select" class="sort-select" aria-label="מיון">
 				<option value="urgency">מיון: לפי דחיפות</option>
 				<option value="name">מיון: לפי שם (א-ב)</option>
 				<option value="bags">מיון: לפי שקים שנשארו</option>
@@ -133,6 +133,12 @@
 	<div class="page" data-page="waiting">
 		<section class="table-section">
 			<h2>⏳ ממתינים - עוד לא צריכים שק</h2>
+			<div class="toolbar toolbar--end">
+				<select id="sort-waiting" class="sort-select" aria-label="מיון">
+					<option value="date">מיון: לפי תאריך חזרה</option>
+					<option value="name">מיון: לפי שם (א-ב)</option>
+				</select>
+			</div>
 			<div class="table-wrap">
 				<table id="table-waiting">
 					<thead>
@@ -150,12 +156,19 @@
 				<svg class="empty-illustration" width="56" height="56" aria-hidden="true"><use href="#icon-dog-sit"></use></svg>
 				<p>אין לקוחות ברשימת ההמתנה כרגע</p>
 			</div>
+			<div class="pagination" id="waiting-pagination"></div>
 		</section>
 	</div>
 
 	<div class="page" data-page="lastbag">
 		<section class="table-section">
 			<h2>🦴 נשאר שק אחרון - להציע חידוש</h2>
+			<div class="toolbar toolbar--end">
+				<select id="sort-lastbag" class="sort-select" aria-label="מיון">
+					<option value="bags">מיון: לפי שקים שנשארו</option>
+					<option value="name">מיון: לפי שם (א-ב)</option>
+				</select>
+			</div>
 			<div class="table-wrap">
 				<table id="table-lastbag">
 					<thead>
@@ -173,10 +186,17 @@
 				<svg class="empty-illustration" width="56" height="56" aria-hidden="true"><use href="#icon-dog-sit"></use></svg>
 				<p>כל הכבוד, אין לקוחות שצריכים חידוש כרגע 🎉</p>
 			</div>
+			<div class="pagination" id="lastbag-pagination"></div>
 		</section>
 
 		<section class="table-section">
 			<h2>🔁 ממתינים לחידוש</h2>
+			<div class="toolbar toolbar--end">
+				<select id="sort-lastbagwaiting" class="sort-select" aria-label="מיון">
+					<option value="date">מיון: לפי תאריך חזרה</option>
+					<option value="name">מיון: לפי שם (א-ב)</option>
+				</select>
+			</div>
 			<div class="table-wrap">
 				<table id="table-lastbag-waiting">
 					<thead>
@@ -194,6 +214,7 @@
 				<svg class="empty-illustration" width="56" height="56" aria-hidden="true"><use href="#icon-dog-sit"></use></svg>
 				<p>אין לקוחות שדחו את שיחת החידוש כרגע</p>
 			</div>
+			<div class="pagination" id="lastbagwaiting-pagination"></div>
 		</section>
 	</div>
 
@@ -221,6 +242,6 @@
 </div>
 
 <script src="config.js?v=10"></script>
-<script src="app.js?v=20"></script>
+<script src="app.js?v=21"></script>
 </body>
 </html>
