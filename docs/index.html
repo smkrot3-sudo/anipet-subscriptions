@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700;800&display=swap" />
-<link rel="stylesheet" href="styles.css?v=22" />
+<link rel="stylesheet" href="styles.css?v=25" />
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -21,10 +21,21 @@
 		<ellipse cx="24" cy="58" rx="4" ry="3" fill="currentColor" />
 		<ellipse cx="40" cy="58" rx="4" ry="3" fill="currentColor" />
 	</symbol>
+	<symbol id="icon-cat-sit" viewBox="0 0 64 64">
+		<ellipse cx="32" cy="47" rx="16" ry="14" fill="currentColor" />
+		<path d="M21 18 25 5 29 17Z" fill="currentColor" />
+		<path d="M43 18 39 5 35 17Z" fill="currentColor" />
+		<circle cx="32" cy="24" r="12" fill="currentColor" />
+		<ellipse cx="46" cy="44" rx="4" ry="15" fill="currentColor" transform="rotate(-18 46 44)" />
+		<ellipse cx="25" cy="58" rx="4" ry="3" fill="currentColor" />
+		<ellipse cx="39" cy="58" rx="4" ry="3" fill="currentColor" />
+	</symbol>
 </svg>
 
 <header class="app-header">
-	<div class="app-header-side"></div>
+	<div class="app-header-side">
+		<button type="button" id="btn-theme-toggle" class="icon-btn icon-btn--lg" aria-label="החלפת מצב כהה/בהיר" title="החלפת מצב כהה/בהיר">🌙</button>
+	</div>
 
 	<div class="app-header-brand">
 		<span class="brand-mark" aria-hidden="true">
@@ -49,7 +60,7 @@
 			</svg>
 		</span>
 		<div class="app-header-titles">
-			<span class="app-eyebrow">🌿 אניפט · מעקב מנויים</span>
+			<span class="app-eyebrow"><span id="eyebrow-emoji">🌿</span> אניפט · מעקב מנויים</span>
 			<h1>מנויי שקי מזון</h1>
 		</div>
 	</div>
@@ -86,6 +97,7 @@
 	<div id="toast" class="toast hidden"></div>
 
 	<div class="page" data-page="main">
+		<div id="daily-progress" class="daily-progress hidden"></div>
 		<div class="toolbar">
 			<input type="search" id="search-box" placeholder="חיפוש לפי שם או טלפון..." />
 			<select id="sort-select" class="sort-select" aria-label="מיון">
@@ -153,7 +165,7 @@
 				</table>
 			</div>
 			<div class="empty-hint hidden">
-				<svg class="empty-illustration" width="56" height="56" aria-hidden="true"><use href="#icon-dog-sit"></use></svg>
+				<svg class="empty-illustration" width="56" height="56" aria-hidden="true"><use href="#icon-cat-sit"></use></svg>
 				<p>אין לקוחות ברשימת ההמתנה כרגע</p>
 			</div>
 			<div class="pagination" id="waiting-pagination"></div>
@@ -211,7 +223,7 @@
 				</table>
 			</div>
 			<div class="empty-hint hidden">
-				<svg class="empty-illustration" width="56" height="56" aria-hidden="true"><use href="#icon-dog-sit"></use></svg>
+				<svg class="empty-illustration" width="56" height="56" aria-hidden="true"><use href="#icon-cat-sit"></use></svg>
 				<p>אין לקוחות שדחו את שיחת החידוש כרגע</p>
 			</div>
 			<div class="pagination" id="lastbagwaiting-pagination"></div>
@@ -242,6 +254,6 @@
 </div>
 
 <script src="config.js?v=10"></script>
-<script src="app.js?v=21"></script>
+<script src="app.js?v=22"></script>
 </body>
 </html>

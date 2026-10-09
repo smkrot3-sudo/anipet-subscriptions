@@ -20,6 +20,58 @@ const el = {
 	removedResults: document.getElementById("removed-results"),
 };
 
+const THEME_KEY = "anipet-theme";
+
+function applyTheme(theme) {
+	if (theme === "dark" || theme === "light") {
+		document.documentElement.setAttribute("data-theme", theme);
+	} else {
+		document.documentElement.removeAttribute("data-theme");
+	}
+	const btn = document.getElementById("btn-theme-toggle");
+	if (!btn) return;
+	const isDark = theme === "dark" || (theme !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+	btn.textContent = isDark ? "☀️" : "🌙";
+}
+
+(function initTheme() {
+	let saved = null;
+	try {
+		saved = localStorage.getItem(THEME_KEY);
+	} catch {
+		// private browsing / blocked storage - just fall back to the OS theme
+	}
+	applyTheme(saved);
+})();
+
+document.getElementById("btn-theme-toggle")?.addEventListener("click", () => {
+	let current = null;
+	try {
+		current = localStorage.getItem(THEME_KEY);
+	} catch {
+		// ignore - toggle still works for this page view, just won't persist
+	}
+	const isDark = current === "dark" || (current !== "light" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+	const next = isDark ? "light" : "dark";
+	try {
+		localStorage.setItem(THEME_KEY, next);
+	} catch {
+		// ignore
+	}
+	applyTheme(next);
+});
+
+// A light, rotating accent next to the header eyebrow - month-based rather
+// than exact Hebrew-calendar dates, since getting a specific holiday's exact
+// Gregorian date wrong every year would look more broken than having none.
+function seasonalEmoji() {
+	const month = new Date().getMonth(); // 0 = January
+	if (month === 8 || month === 9) return "🍯🍎"; // Sep/Oct - Rosh Hashana season
+	if (month === 10 || month === 11) return "🕎"; // Nov/Dec - Hanukkah season
+	if (month === 2 || month === 3) return "🌸"; // Mar/Apr - Purim/Passover season
+	return "🌿";
+}
+
 function showToast(message, isError = false, undoLogId = null) {
 	el.toast.innerHTML = `<span>${escapeHtml(message)}</span>${
 		undoLogId ? `<button type="button" class="toast-undo" data-undo-id="${undoLogId}">בטל</button>` : ""
@@ -152,16 +204,107 @@ function bagGauge(id, bagsRemaining) {
 }
 
 let allGroups = { main: [], waitingList: [], lastBag: [], lastBagWaitingList: [], removed: [] };
+let hasLoadedOnce = false;
+// null until the first real fetch, so an empty table on page load never
+// reads as "just emptied out" and fires a celebration that makes no sense.
+let prevCounts = { main: null, waiting: null, lastBag: null, lastBagWaiting: null };
 
-async function refresh() {
+async function refresh(highlightId) {
+	if (!hasLoadedOnce) showInitialLoading();
 	try {
 		allGroups = await api("/api/customers");
+		hasLoadedOnce = true;
 		renderStatStrip();
 		updateNav();
 		applyFilter();
+		renderDailyProgress();
+		checkCelebrations();
+		if (highlightId) flashRow(highlightId);
 	} catch (err) {
 		showToast(err.message, true);
 	}
+}
+
+function showInitialLoading() {
+	el.mainBody.innerHTML = `<tr><td colspan="6"><div class="loading-paws"><span>🐾</span><span>🐾</span><span>🐾</span></div></td></tr>`;
+}
+
+function flashRow(id) {
+	const row = document.querySelector(`tr[data-customer-id="${id}"]`);
+	if (row) row.classList.add("row-flash");
+}
+
+// A row-count going from >0 to exactly 0 means that table just emptied out -
+// a small confetti burst on its empty-state illustration. Compares against
+// the raw (unfiltered) counts, not the currently-rendered/search-filtered
+// rows, so an active search box never fakes a false celebration.
+function checkCelebrations() {
+	const counts = {
+		main: allGroups.main.length,
+		waiting: allGroups.waitingList.length,
+		lastBag: allGroups.lastBag.length,
+		lastBagWaiting: allGroups.lastBagWaitingList.length,
+	};
+	const tableSelectors = {
+		main: "#table-main",
+		waiting: "#table-waiting",
+		lastBag: "#table-lastbag",
+		lastBagWaiting: "#table-lastbag-waiting",
+	};
+	for (const key of Object.keys(counts)) {
+		if (prevCounts[key] !== null && prevCounts[key] > 0 && counts[key] === 0) {
+			const table = document.querySelector(tableSelectors[key]);
+			const emptyHint = table?.parentElement.nextElementSibling;
+			if (emptyHint && emptyHint.classList.contains("empty-hint")) celebrate(emptyHint);
+		}
+		prevCounts[key] = counts[key];
+	}
+}
+
+function celebrate(container) {
+	const colors = ["#2f9bd6", "#2fa866", "#e8970f", "#e4679e", "#7c6fd1"];
+	for (let i = 0; i < 14; i++) {
+		const piece = document.createElement("span");
+		piece.className = "confetti-piece";
+		piece.style.left = `${Math.round(Math.random() * 100)}%`;
+		piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+		piece.style.animationDelay = `${Math.round(Math.random() * 150)}ms`;
+		container.appendChild(piece);
+		setTimeout(() => piece.remove(), 1100);
+	}
+}
+
+// "Today's actionable list" = anyone it currently makes sense to reach out to:
+// ready-now in the main table, waiting customers whose follow-up date arrived,
+// every last-bag customer, and renewal-waiters whose date arrived. Progress is
+// how many of those already have a WhatsApp send logged today.
+function renderDailyProgress() {
+	const wrap = document.getElementById("daily-progress");
+	if (!wrap) return;
+	const today = todayISO();
+	const actionable = [
+		...allGroups.main.filter((c) => c.color === "green"),
+		...allGroups.waitingList.filter((c) => c.readyToContact),
+		...allGroups.lastBag,
+		...allGroups.lastBagWaitingList.filter((c) => c.renewalReadyToContact),
+	];
+	const seen = new Set();
+	const unique = actionable.filter((c) => (seen.has(c.id) ? false : seen.add(c.id)));
+	if (unique.length === 0) {
+		wrap.classList.add("hidden");
+		wrap.innerHTML = "";
+		return;
+	}
+	const contactedToday = unique.filter((c) => c.lastWhatsappAt && c.lastWhatsappAt.slice(0, 10) === today).length;
+	const total = unique.length;
+	const done = contactedToday >= total;
+	const pct = Math.round((contactedToday / total) * 100);
+	wrap.classList.remove("hidden");
+	wrap.innerHTML = `
+		<span class="daily-progress-label">${
+			done ? "🎉 כל הפניות של היום נשלחו!" : `📣 נשלחה פנייה ל-${contactedToday} מתוך ${total} לקוחות שצריך היום`
+		}</span>
+		<div class="daily-progress-track"><div class="daily-progress-fill${done ? " complete" : ""}" style="width:${pct}%"></div></div>`;
 }
 
 function updateNav() {
@@ -407,7 +550,7 @@ function renderMain(rows) {
 	el.mainBody.innerHTML = rows
 		.map(
 			(c) => `
-		<tr class="${colorLabel(c.color)}">
+		<tr class="${colorLabel(c.color)}" data-customer-id="${c.id}">
 			<td class="name-cell">
 				<div class="name-line">${statusChip(c.color)}${awaitingBadge(c)}<span>${escapeHtml(c.name)}</span></div>
 				${notesLine(c)}
@@ -437,7 +580,7 @@ function renderWaiting(rows) {
 	el.waitingBody.innerHTML = rows
 		.map(
 			(c) => `
-		<tr class="${c.readyToContact ? "row-green" : ""}">
+		<tr class="${c.readyToContact ? "row-green" : ""}" data-customer-id="${c.id}">
 			<td class="name-cell">
 				<div class="name-line">${statusChip(c.readyToContact ? "green" : "unknown", c.readyToContact ? "מוכן לחזרה" : "בהמתנה")}${awaitingBadge(c)}<span>${escapeHtml(c.name)}</span></div>
 				${notesLine(c)}
@@ -464,7 +607,7 @@ function renderLastBag(rows) {
 	el.lastBagBody.innerHTML = rows
 		.map(
 			(c) => `
-		<tr class="${c.bagsRemaining === 0 ? "row-red" : "row-orange"}">
+		<tr class="${c.bagsRemaining === 0 ? "row-red" : "row-orange"}" data-customer-id="${c.id}">
 			<td class="name-cell">
 				<div class="name-line">${statusChip(c.bagsRemaining === 0 ? "red" : "orange", c.bagsRemaining === 0 ? "אין שקים" : "שק אחרון")}${awaitingBadge(c)}<span>${escapeHtml(c.name)}</span></div>
 				${notesLine(c)}
@@ -486,7 +629,7 @@ function renderLastBagWaiting(rows) {
 	el.lastBagWaitingBody.innerHTML = rows
 		.map(
 			(c) => `
-		<tr class="${c.renewalReadyToContact ? "row-green" : ""}">
+		<tr class="${c.renewalReadyToContact ? "row-green" : ""}" data-customer-id="${c.id}">
 			<td class="name-cell">
 				<div class="name-line">${statusChip(c.renewalReadyToContact ? "green" : "unknown", c.renewalReadyToContact ? "מוכן לחזרה" : "בהמתנה")}${awaitingBadge(c)}<span>${escapeHtml(c.name)}</span></div>
 				${notesLine(c)}
@@ -607,7 +750,7 @@ async function submitNewCustomer(payload, errBox) {
 		const res = await api("/api/customers", { method: "POST", body: payload });
 		closeModal();
 		showToast(res.reactivated ? "הלקוח הופעל מחדש" : "הלקוח נוסף בהצלחה", false, res.activityLogId);
-		refresh();
+		refresh(res.id);
 	} catch (err) {
 		if (err.removed) {
 			const r = err.removedCustomer;
@@ -648,7 +791,7 @@ function openWithdrawModal(id) {
 					const res = await api(`/api/customers/${id}/withdraw`, { method: "POST", body: { bags, takenAt } });
 					closeModal();
 					showToast("המשיכה נרשמה", false, res.activityLogId);
-					refresh();
+					refresh(id);
 				} catch (err) {
 					showToast(err.message, true);
 				}
@@ -687,7 +830,7 @@ function openWaitModal(id, { isExtend = false, mode = "main" } = {}) {
 					const res = await api(`/api/customers/${id}/${endpoint}`, { method: "POST", body: { days, note } });
 					closeModal();
 					showToast(mode === "renewal" ? "הלקוח הועבר לממתינים לחידוש" : "הלקוח הועבר לרשימת ההמתנה", false, res.activityLogId);
-					refresh();
+					refresh(id);
 				} catch (err) {
 					showToast(err.message, true);
 				}
@@ -734,7 +877,7 @@ function openEditModal(id) {
 					const res = await api(`/api/customers/${id}`, { method: "PATCH", body: { name, phone, bagsRemaining, notes } });
 					closeModal();
 					showToast("הפרטים עודכנו", false, res.activityLogId);
-					refresh();
+					refresh(id);
 				} catch (err) {
 					modal.querySelector("#f-err").textContent = err.message;
 				}
@@ -757,7 +900,8 @@ function renderHistoryRows(modal, customer) {
 			<button type="button" class="btn btn-danger" data-hist-del="${w.id}">מחק</button>
 		</div>`
 			)
-			.join("") || '<p class="empty-hint">אין היסטוריית משיכות עדיין</p>';
+			.join("") ||
+		'<div class="empty-hint"><svg class="empty-illustration" width="56" height="56" aria-hidden="true"><use href="#icon-dog-sit"></use></svg><p>אין היסטוריית משיכות עדיין</p></div>';
 }
 
 function openHistoryModal(id) {
@@ -897,7 +1041,7 @@ document.getElementById("app").addEventListener("click", async (e) => {
 		try {
 			const res = await api(`/api/customers/${customerId}/renewal-unwait`, { method: "POST" });
 			showToast("הלקוח חזר לרשימת החידוש הרגילה", false, res.activityLogId);
-			refresh();
+			refresh(customerId);
 		} catch (err) {
 			showToast(err.message, true);
 		}
@@ -915,7 +1059,7 @@ document.getElementById("app").addEventListener("click", async (e) => {
 		try {
 			const res = await api(`/api/customers/${customerId}`, { method: "PATCH", body: { awaitingReply: !c.awaitingReply } });
 			showToast(c.awaitingReply ? "הסימון בוטל" : "סומן כממתין לתשובה", false, res.activityLogId);
-			refresh();
+			refresh(customerId);
 		} catch (err) {
 			showToast(err.message, true);
 		}
@@ -932,7 +1076,7 @@ document.getElementById("app").addEventListener("click", async (e) => {
 		try {
 			const res = await api(`/api/customers/${customerId}/unwait`, { method: "POST" });
 			showToast("הלקוח חזר למעקב הרגיל", false, res.activityLogId);
-			refresh();
+			refresh(customerId);
 		} catch (err) {
 			showToast(err.message, true);
 		}
@@ -947,7 +1091,7 @@ document.getElementById("app").addEventListener("click", async (e) => {
 		try {
 			const res = await api(`/api/customers/${customerId}/restore`, { method: "POST" });
 			showToast("הלקוח הוצג מחדש", false, res.activityLogId);
-			refresh();
+			refresh(customerId);
 		} catch (err) {
 			showToast(err.message, true);
 		}
@@ -980,7 +1124,7 @@ function openRenewModal(id) {
 					const res = await api(`/api/customers/${id}/renew`, { method: "POST", body: { bagsToAdd } });
 					closeModal();
 					showToast("המנוי חודש", false, res.activityLogId);
-					refresh();
+					refresh(id);
 				} catch (err) {
 					showToast(err.message, true);
 				}
@@ -1093,7 +1237,8 @@ const ACTIVITY_DOT = {
 function renderActivityLog(entries) {
 	const wrap = document.getElementById("activity-log");
 	if (entries.length === 0) {
-		wrap.innerHTML = '<p class="empty-hint">אין עדיין פעולות רשומות</p>';
+		wrap.innerHTML =
+			'<div class="empty-hint"><svg class="empty-illustration" width="56" height="56" aria-hidden="true"><use href="#icon-cat-sit"></use></svg><p>אין עדיין פעולות רשומות</p></div>';
 		return;
 	}
 	wrap.innerHTML = entries
@@ -1135,6 +1280,9 @@ document.addEventListener("keydown", (e) => {
 		document.querySelectorAll(".dropdown-menu.open").forEach((m) => m.classList.remove("open"));
 	}
 });
+
+const eyebrowEmoji = document.getElementById("eyebrow-emoji");
+if (eyebrowEmoji) eyebrowEmoji.textContent = seasonalEmoji();
 
 refresh();
 setInterval(() => {

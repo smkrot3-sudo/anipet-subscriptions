@@ -157,6 +157,7 @@ async function buildCustomerViews(db) {
 			awaitingReplyDays,
 			awaitingReplyStuck: awaitingReplyDays !== null && awaitingReplyDays >= STUCK_AWAITING_DAYS,
 			whatsappContactedAt: c.whatsapp_contacted_at,
+			lastWhatsappAt: c.last_whatsapp_at,
 			withdrawals: history.map((h) => ({ id: h.id, takenAt: h.taken_at, bags: h.bags })),
 		};
 	});
@@ -429,6 +430,8 @@ async function handleRequest(request, env) {
 			}
 			if (body.markWhatsappContacted === true) {
 				updates.push("whatsapp_contacted_at = COALESCE(whatsapp_contacted_at, datetime('now'))");
+				updates.push("last_whatsapp_at = ?");
+				values.push(nowDateTimeISO());
 				summary = "נשלחה הודעת וואטסאפ";
 			}
 			if (updates.length === 0) return error("אין מה לעדכן");
