@@ -157,9 +157,16 @@ async function copyToClipboard(text) {
 	if (!ok) throw new Error("copy failed");
 }
 
-function phoneCell(phone) {
+// With a whatsappId given, the phone number itself opens the WhatsApp compose
+// modal (same as clicking the customer's name) instead of dialing - the
+// dedicated WhatsApp button was removed in favor of name/phone as the trigger.
+function phoneCell(phone, whatsappId, whatsappTemplate) {
+	const numberHtml =
+		whatsappId != null
+			? `<button type="button" class="phone-link" data-action="whatsapp" data-template="${whatsappTemplate}" data-id="${whatsappId}">${escapeHtml(phone)}</button>`
+			: `<a class="phone-link" href="tel:${escapeHtml(phone)}">${escapeHtml(phone)}</a>`;
 	return `<span class="phone-cell">
-		<a class="phone-link" href="tel:${escapeHtml(phone)}">${escapeHtml(phone)}</a>
+		${numberHtml}
 		<button type="button" class="icon-btn" data-action="copy-phone" data-phone="${escapeHtml(phone)}" title="העתקת מספר טלפון" aria-label="העתקת מספר טלפון">${copyIcon()}</button>
 	</span>`;
 }
@@ -517,10 +524,17 @@ function awaitingBadge(c) {
 	return `<span class="awaiting-badge${c.awaitingReplyStuck ? " stuck" : ""}">${label}</span>`;
 }
 
-function awaitingMenuItem(c) {
-	return `<button type="button" class="menu-item" data-action="toggle-awaiting" data-id="${c.id}">${
-		c.awaitingReply ? "בטל סימון ממתין לתשובה" : "סימון: ממתין לתשובה"
+// Primary-row action that replaced the dedicated WhatsApp button - sending
+// the message itself now happens by clicking the customer's name or phone
+// number (see phoneCell / the name-link buttons in each render function).
+function awaitingButton(c) {
+	return `<button type="button" class="btn${c.awaitingReply ? " btn-awaiting-on" : ""}" data-action="toggle-awaiting" data-id="${c.id}">${
+		c.awaitingReply ? "✔️ ביטול סימון ממתין לתשובה" : "📨 סימון שנשלחה הודעה"
 	}</button>`;
+}
+
+function nameLink(c, template) {
+	return `<button type="button" class="name-link" data-action="whatsapp" data-template="${template}" data-id="${c.id}">${escapeHtml(c.name)}</button>`;
 }
 
 // A row's secondary actions (everything beyond WhatsApp + the one primary action)
@@ -552,19 +566,18 @@ function renderMain(rows) {
 			(c) => `
 		<tr class="${colorLabel(c.color)}" data-customer-id="${c.id}">
 			<td class="name-cell">
-				<div class="name-line">${statusChip(c.color)}${awaitingBadge(c)}<span>${escapeHtml(c.name)}</span></div>
+				<div class="name-line">${statusChip(c.color)}${awaitingBadge(c)}${nameLink(c, "reminder")}</div>
 				${notesLine(c)}
 			</td>
-			<td data-label="טלפון">${phoneCell(c.phone)}</td>
+			<td data-label="טלפון">${phoneCell(c.phone, c.id, "reminder")}</td>
 			<td data-label="שקים שנשארו">${bagGauge(c.id, c.bagsRemaining)}</td>
 			<td data-label="משיכה אחרונה" class="date-cell">${fmtDate(c.lastWithdrawal)}</td>
 			<td data-label="תאריך משוער הבא" class="date-cell${c.avgIntervalDays != null ? " has-interval" : ""}" title="${escapeHtml(intervalTitle(c))}">${fmtDate(c.nextEstimate)}</td>
 			<td class="actions-cell">
-				<button class="btn btn-whatsapp" data-action="whatsapp" data-template="reminder" data-id="${c.id}">💬 וואטסאפ</button>
+				${awaitingButton(c)}
 				<button class="btn" data-action="withdraw" data-id="${c.id}">🛍️ סימון משיכה</button>
 				${overflowMenu([
 					menuItem("wait", c.id, "עדיין לא צריך"),
-					awaitingMenuItem(c),
 					menuItem("history", c.id, "היסטוריה"),
 					menuItem("edit", c.id, "עריכה"),
 					menuItem("delete", c.id, "מחיקה", true),
@@ -582,18 +595,17 @@ function renderWaiting(rows) {
 			(c) => `
 		<tr class="${c.readyToContact ? "row-green" : ""}" data-customer-id="${c.id}">
 			<td class="name-cell">
-				<div class="name-line">${statusChip(c.readyToContact ? "green" : "unknown", c.readyToContact ? "מוכן לחזרה" : "בהמתנה")}${awaitingBadge(c)}<span>${escapeHtml(c.name)}</span></div>
+				<div class="name-line">${statusChip(c.readyToContact ? "green" : "unknown", c.readyToContact ? "מוכן לחזרה" : "בהמתנה")}${awaitingBadge(c)}${nameLink(c, "waiting")}</div>
 				${notesLine(c)}
 				${waitNoteLine(c.waitNote)}
 			</td>
-			<td data-label="טלפון">${phoneCell(c.phone)}</td>
+			<td data-label="טלפון">${phoneCell(c.phone, c.id, "waiting")}</td>
 			<td data-label="לחזור אליו בתאריך" class="date-cell">${fmtDate(c.waitingUntil)}</td>
 			<td class="actions-cell">
-				<button class="btn btn-whatsapp" data-action="whatsapp" data-template="waiting" data-id="${c.id}">💬 וואטסאפ</button>
+				${awaitingButton(c)}
 				<button class="btn" data-action="withdraw" data-id="${c.id}">🛍️ משך שק</button>
 				${overflowMenu([
 					menuItem("extend-wait", c.id, "הארכת המתנה"),
-					awaitingMenuItem(c),
 					menuItem("unwait", c.id, "חזרה למעקב רגיל"),
 				])}
 			</td>
@@ -609,15 +621,15 @@ function renderLastBag(rows) {
 			(c) => `
 		<tr class="${c.bagsRemaining === 0 ? "row-red" : "row-orange"}" data-customer-id="${c.id}">
 			<td class="name-cell">
-				<div class="name-line">${statusChip(c.bagsRemaining === 0 ? "red" : "orange", c.bagsRemaining === 0 ? "אין שקים" : "שק אחרון")}${awaitingBadge(c)}<span>${escapeHtml(c.name)}</span></div>
+				<div class="name-line">${statusChip(c.bagsRemaining === 0 ? "red" : "orange", c.bagsRemaining === 0 ? "אין שקים" : "שק אחרון")}${awaitingBadge(c)}${nameLink(c, "renew")}</div>
 				${notesLine(c)}
 			</td>
-			<td data-label="טלפון">${phoneCell(c.phone)}</td>
+			<td data-label="טלפון">${phoneCell(c.phone, c.id, "renew")}</td>
 			<td data-label="שקים שנשארו">${bagGauge(c.id, c.bagsRemaining)}</td>
 			<td class="actions-cell">
-				<button class="btn btn-whatsapp" data-action="whatsapp" data-template="renew" data-id="${c.id}">💬 וואטסאפ</button>
+				${awaitingButton(c)}
 				<button class="btn btn-primary" data-action="renew" data-id="${c.id}">🦴 חודש</button>
-				${overflowMenu([menuItem("renewal-wait", c.id, "לחזור אליו בעוד כמה ימים"), awaitingMenuItem(c)])}
+				${overflowMenu([menuItem("renewal-wait", c.id, "לחזור אליו בעוד כמה ימים")])}
 			</td>
 		</tr>`
 		)
@@ -631,16 +643,16 @@ function renderLastBagWaiting(rows) {
 			(c) => `
 		<tr class="${c.renewalReadyToContact ? "row-green" : ""}" data-customer-id="${c.id}">
 			<td class="name-cell">
-				<div class="name-line">${statusChip(c.renewalReadyToContact ? "green" : "unknown", c.renewalReadyToContact ? "מוכן לחזרה" : "בהמתנה")}${awaitingBadge(c)}<span>${escapeHtml(c.name)}</span></div>
+				<div class="name-line">${statusChip(c.renewalReadyToContact ? "green" : "unknown", c.renewalReadyToContact ? "מוכן לחזרה" : "בהמתנה")}${awaitingBadge(c)}${nameLink(c, "renew")}</div>
 				${notesLine(c)}
 				${waitNoteLine(c.renewalWaitNote)}
 			</td>
-			<td data-label="טלפון">${phoneCell(c.phone)}</td>
+			<td data-label="טלפון">${phoneCell(c.phone, c.id, "renew")}</td>
 			<td data-label="לחזור אליו בתאריך" class="date-cell">${fmtDate(c.renewalWaitingUntil)}</td>
 			<td class="actions-cell">
-				<button class="btn btn-whatsapp" data-action="whatsapp" data-template="renew" data-id="${c.id}">💬 וואטסאפ</button>
+				${awaitingButton(c)}
 				<button class="btn btn-primary" data-action="renew" data-id="${c.id}">🦴 חודש</button>
-				${overflowMenu([awaitingMenuItem(c), menuItem("renewal-unwait", c.id, "חזרה לרשימת החידוש")])}
+				${overflowMenu([menuItem("renewal-unwait", c.id, "חזרה לרשימת החידוש")])}
 			</td>
 		</tr>`
 		)

@@ -723,6 +723,10 @@ tr.row-unknown { background: var(--unknown-bg); }
 }
 
 .phone-link {
+	background: none;
+	border: none;
+	padding: 0;
+	font: inherit;
 	color: var(--ink-secondary);
 	text-decoration: none;
 	font-variant-numeric: tabular-nums;
@@ -730,7 +734,17 @@ tr.row-unknown { background: var(--unknown-bg); }
 	unicode-bidi: embed;
 	display: inline-block;
 }
-.phone-link:hover { color: var(--accent); }
+.phone-link:hover { color: var(--accent); text-decoration: underline dotted; text-underline-offset: 2px; }
+
+.name-link {
+	background: none;
+	border: none;
+	padding: 0;
+	font: inherit;
+	color: inherit;
+	text-align: inherit;
+}
+.name-link:hover { color: var(--accent); text-decoration: underline dotted; text-underline-offset: 2px; }
 
 .phone-cell {
 	display: inline-flex;
@@ -907,6 +921,14 @@ td.date-cell, .date-cell { font-variant-numeric: tabular-nums; color: var(--ink-
 	font-weight: 600;
 }
 .btn-whatsapp:hover { filter: brightness(1.05); }
+
+.btn-awaiting-on {
+	background: var(--accent-wash);
+	color: var(--accent);
+	border-color: var(--accent);
+	font-weight: 600;
+}
+.btn-awaiting-on:hover { filter: brightness(0.97); }
 
 .btn-danger {
 	color: var(--red);
